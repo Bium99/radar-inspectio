@@ -1,0 +1,24 @@
+{
+  "name": "radar-inspectio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Radar delle richieste di lavoro già aperte: ascolta fonti lecite, classifica, misura il sito del cliente, prepara la bozza. L'invio resta umano.",
+  "type": "module",
+  "bin": {
+    "radar": "bin/radar.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "scansiona": "node bin/radar.mjs scansiona",
+    "elenco": "node bin/radar.mjs elenco"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.133.0",
+    "fast-xml-parser": "5.11.2",
+    "imapflow": "2.4.2",
+    "mailparser": "3.9.39"
+  }
+}

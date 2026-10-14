@@ -1,0 +1,44 @@
+{
+  "userAgent": "RadarRichieste/0.1 (uso personale; contatto: CAMBIA-QUI)",
+  "preferredLangs": ["it"],
+  "minBudget": 300,
+  "notifyMinScore": 45,
+  "measureMinScore": 30,
+  "retentionDays": 60,
+  "storePath": "data/radar.json",
+  "sources": {
+    "email": {
+      "enabled": true,
+      "mailbox": "Radar"
+    },
+    "reddit": {
+      "enabled": true,
+      "subreddits": [
+        { "name": "forhire", "onlyHiring": true },
+        { "name": "webflow", "onlyHiring": true },
+        { "name": "framer", "onlyHiring": true }
+      ]
+    },
+    "rss": [
+      {
+        "name": "esempio-forum-discourse",
+        "url": "https://forum.esempio.com/c/lavoro.rss",
+        "enabled": false
+      }
+    ]
+  },
+  "pricing": {
+    "_nota": "Valori segnaposto: mettili tu dopo i primi lavori (meglio dai tempi misurati del registro dei run di site-inspector).",
+    "migrazione": { "BASSA": "€600–1.000", "MEDIA": "€1.000–1.800", "AVANZATA": "da valutare dopo la misura completa" },
+    "rifacimento": { "BASSA": "€500–900", "MEDIA": "€900–1.600", "AVANZATA": "da valutare dopo la misura completa" },
+    "animazioni": { "BASSA": "€200–400", "MEDIA": "€400–900", "AVANZATA": "da valutare dopo la misura completa" },
+    "bug_animazione": { "BASSA": "€100–250", "MEDIA": "€150–400", "AVANZATA": "da valutare" },
+    "performance": { "BASSA": "€150–300", "MEDIA": "€250–500", "AVANZATA": "da valutare" }
+  },
+  "timeline": {
+    "BASSA": "3–5 giorni",
+    "MEDIA": "1–2 settimane",
+    "AVANZATA": "da concordare dopo la misura"
+  },
+  "signature": "[il tuo nome]"
+}

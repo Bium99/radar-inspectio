@@ -1,0 +1,4 @@
+node_modules/
+# dati delle richieste: contengono nomi e testi di terzi, non si versionano mai
+data/
+.env
