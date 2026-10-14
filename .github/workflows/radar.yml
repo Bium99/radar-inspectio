@@ -11,6 +11,10 @@ on:
         description: 'Solo prova delle fonti: nessuno stato salvato, nessuna notifica'
         type: boolean
         default: false
+      candidati:
+        description: 'Nella prova, collauda anche le fonti candidate'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -77,7 +81,7 @@ jobs:
         env:
           RADAR_PASSWORD: ''
           NTFY_OFF: '1'
-        run: node bin/radar.mjs prova-fonti --quante 40
+        run: node bin/radar.mjs prova-fonti --quante 60 ${{ inputs.candidati && '--candidati' || '' }}
 
       - name: Recupera lo stato
         if: steps.pronto.outputs.modo == 'giro'

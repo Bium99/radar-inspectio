@@ -44,7 +44,9 @@ In locale, senza GitHub
   radar esporta <file.csv>            per Airtable, Notion o un foglio di calcolo
 
 Prove
-  radar prova-fonti [--quante N]      un giro vero su tutte le fonti, senza salvare né avvisare
+  radar prova-fonti [--candidati] [--quante N]
+                                      un giro vero su tutte le fonti, senza salvare né avvisare
+                                      (--candidati: anche quelle ancora da collaudare)
   radar sito <url>                    misura un URL qualsiasi (non salva nulla)
   radar prova-email <file.eml>        prova il lettore su un avviso salvato
 
@@ -102,7 +104,9 @@ async function main() {
     case 'prova-fonti': {
       // un giro vero su tutte le fonti attive, senza stato, senza avvisi: per collaudare le fonti
       const store = loadStore('/dev/null/nessuno');
-      const summary = await runScan({ config, env, store, specs: SOURCES, notify: false });
+      // --candidati: accende anche le fonti candidate, per collaudarle dal vivo
+      const specs = flag('--candidati') ? SOURCES.map((s) => (s.candidate ? { ...s, enabled: true } : s)) : SOURCES;
+      const summary = await runScan({ config, env, store, specs, notify: false });
       for (const s of summary.sources) console.log(`${s.error ? 'ERRORE' : 'ok    '} ${s.id.padEnd(24)} letti ${String(s.count).padStart(4)}  richieste ${s.requests}  ${s.ms} ms${s.error ? `  ${s.error}` : ''}`);
       const top = Object.values(store.items).filter((it) => it.status !== 'scartato').sort((a, b) => b.classification.score - a.classification.score);
       console.log(`\nlette ${summary.fetched} · nuove ${summary.fresh} · pertinenti ${summary.relevant} · misurate ${summary.measured}`);
