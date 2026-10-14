@@ -93,3 +93,57 @@ test('italiano: «cerco sviluppatore … preventivo» è una richiesta', () => {
   assert.equal(c.intent, true);
   assert.ok(c.categories.includes('migrazione'));
 });
+
+// ——— casi veri dal collaudo su GitHub Actions del 2026-10-14 ———
+const fromBoard = (title, text = '') => ({ ...item(title, text), demandSource: true, jobBoard: true });
+const fromMarket = (title, text = '') => ({ ...item(title, text), demandSource: true });
+
+test('collaudo: video, 2D, cartoni e slide non sono animazioni web', () => {
+  for (const [title, text] of [
+    ['Educational YouTube Video Editor Needed', 'Need a video editor for animated educational videos, after effects.'],
+    ['Cartoonish 3D Entertainment Animation', 'Looking for a 3D animator for a cartoon character animation.'],
+    ['Photo Edit & Motion Graphics', 'Motion graphics for Instagram reels.'],
+    ['Visual Primary Math Google Slides -- 2', 'Animated slides for kids.'],
+  ]) {
+    const c = classify(fromMarket(title, text), cfg, { now });
+    assert.ok(!c.categories.includes('animazioni'), title);
+  }
+  assert.ok(!classify(fromBoard('2D Artist', 'Create 2D animations and illustrations for slot games.'), cfg, { now }).categories.includes('animazioni'));
+});
+
+test('collaudo: animazioni web vere riconosciute', () => {
+  assert.ok(classify(fromMarket('React/Vite/Three.js 3D Development Specialist', 'Interactive 3D configurator.'), cfg, { now }).categories.includes('animazioni'));
+  assert.ok(classify(fromMarket('Animated Corporate Landing Page Design', 'Modern landing page with scroll animations.'), cfg, { now }).categories.includes('animazioni'));
+});
+
+test('collaudo: «convert», «export», «pixel-perfect» in un annuncio qualsiasi non fanno migrazione né rifacimento', () => {
+  const c = classify(fromBoard('Senior Shopify Developer', 'Build pixel-perfect themes, export data, convert designs from Figma, improve Core Web Vitals. Full-time.'), cfg, { now });
+  assert.ok(!c.categories.includes('migrazione'));
+  assert.ok(!c.categories.includes('rifacimento'));
+  assert.ok(c.employment);
+  const s = classify(fromBoard('Solutions Engineer - French Speaker', 'Help customers migrate their workflows; React knowledge a plus.'), cfg, { now });
+  assert.ok(!s.categories.includes('migrazione'));
+});
+
+test('collaudo: le migrazioni vere restano migrazioni', () => {
+  for (const t of ['Migrate our site from Webflow to Next.js', 'Website migration: WordPress to Astro', 'Move our Framer site to code', 'Migrazione del sito da Wix a WordPress']) {
+    assert.ok(classify(fromMarket(t), cfg, { now }).categories.includes('migrazione'), t);
+  }
+});
+
+test('collaudo: «[For Hire]» si riconosce anche tra parentesi quadre', () => {
+  const c = classify(item('[For Hire] Web Designer & Developer | Webflow, Framer, Shopify, WordPress & Custom Website', 'DM me'), cfg, { now });
+  assert.equal(c.supply, true);
+  assert.equal(c.score, 0);
+});
+
+test('collaudo: bacheca senza segnali di contratto = impiego; con «contract» no', () => {
+  assert.ok(classify(fromBoard('Webflow Developer', 'Join our team and build our marketing site in Webflow.'), cfg, { now }).employment);
+  assert.ok(!classify(fromBoard('Webflow Developer', 'contract, 3 months, hourly rate. Build our marketing site in Webflow.'), cfg, { now }).employment);
+});
+
+test('collaudo: progetti Webflow/Framer hanno la loro categoria', () => {
+  const c = classify(fromMarket('Bilingual Framer Website Design', 'Design and build a bilingual website in Framer.'), cfg, { now });
+  assert.deepEqual(c.categories, ['webflow_framer']);
+  assert.equal(c.score, 20 + 10);
+});

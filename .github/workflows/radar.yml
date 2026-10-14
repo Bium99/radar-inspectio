@@ -49,7 +49,10 @@ jobs:
       IMAP_USER: ${{ secrets.IMAP_USER }}
       IMAP_PASS: ${{ secrets.IMAP_PASS }}
       IMAP_MAILBOX: ${{ secrets.IMAP_MAILBOX }}
-      BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
+      REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+      REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+      BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+      BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
     steps:
@@ -81,6 +84,7 @@ jobs:
         env:
           RADAR_PASSWORD: ''
           NTFY_OFF: '1'
+          RADAR_DEBUG: '1'
         run: node bin/radar.mjs prova-fonti --quante 60 ${{ inputs.candidati && '--candidati' || '' }}
 
       - name: Recupera lo stato

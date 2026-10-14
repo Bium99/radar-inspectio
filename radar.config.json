@@ -33,7 +33,8 @@
     "rifacimento": { "BASSA": "€500–900", "MEDIA": "€900–1.600", "AVANZATA": "da valutare dopo la misura completa" },
     "animazioni": { "BASSA": "€200–400", "MEDIA": "€400–900", "AVANZATA": "da valutare dopo la misura completa" },
     "bug_animazione": { "BASSA": "€100–250", "MEDIA": "€150–400", "AVANZATA": "da valutare" },
-    "performance": { "BASSA": "€150–300", "MEDIA": "€250–500", "AVANZATA": "da valutare" }
+    "performance": { "BASSA": "€150–300", "MEDIA": "€250–500", "AVANZATA": "da valutare" },
+    "webflow_framer": { "BASSA": "€400–800", "MEDIA": "€800–1.500", "AVANZATA": "da valutare dopo la misura completa" }
   },
   "timeline": {
     "BASSA": "3–5 giorni",
