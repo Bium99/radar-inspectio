@@ -97,9 +97,15 @@ async function main() {
         siteDir: option('--sito') ? resolve(option('--sito')) : undefined,
         log: (m) => console.log(m),
       });
-      const srcs = summary.sources.map((s) => `${s.id}=${s.error ? `ERR(${s.error.slice(0, 60)})` : s.count}`).join(' ');
-      console.log(`fonti: ${srcs || 'nessuna attiva'}`);
-      console.log(`lette ${summary.fetched} · nuove ${summary.fresh} · pertinenti ${summary.relevant} · misurate ${summary.measured} · avvisi ${summary.notified}${summary.firstRun ? ' (primo giro: un solo riepilogo)' : ''} · bozze rifinite ${summary.polished} · in archivio ${summary.items} · cancellate ${summary.removed}`);
+      const failed = summary.sources.filter((s) => s.error);
+      if (env.GITHUB_ACTIONS === 'true') {
+        // i log di Actions possono essere pubblici: solo l'esito, i conteggi stanno nella dashboard cifrata
+        console.log(`giro completato: ${summary.sources.length} fonti, ${failed.length} in errore${failed.length ? ` (${failed.map((s) => s.id).join(', ')})` : ''}`);
+      } else {
+        const srcs = summary.sources.map((s) => `${s.id}=${s.error ? `ERR(${s.error.slice(0, 60)})` : s.count}`).join(' ');
+        console.log(`fonti: ${srcs || 'nessuna attiva'}`);
+        console.log(`lette ${summary.fetched} · nuove ${summary.fresh} · pertinenti ${summary.relevant} · misurate ${summary.measured} · avvisi ${summary.notified}${summary.firstRun ? ' (primo giro: un solo riepilogo)' : ''} · bozze rifinite ${summary.polished} · in archivio ${summary.items} · cancellate ${summary.removed}`);
+      }
       for (const e of summary.notifyErrors) console.log(`::warning::notifica ${e.channel} non riuscita: ${e.error}`);
       if (summary.dashboardUrl) console.log(`dashboard: ${summary.dashboardUrl}`);
       break;
@@ -135,7 +141,7 @@ async function main() {
     case 'scansiona': {
       const dry = flag('--prova');
       const store = loadStore(storePath, { password });
-      const summary = await runScan({ config, env, store, specs: SOURCES, notify: !dry, log: (m) => console.log(m) });
+      const summary = await runScan({ config, env, store, specs: SOURCES, notify: !dry, echo: true, log: (m) => console.log(m) });
       if (!dry) saveStore(storePath, store, { password });
       console.log(`fonti: ${summary.sources.map((s) => `${s.id}=${s.error ? 'ERR' : s.count}`).join(' ') || 'nessuna attiva (controlla .env)'}`);
       console.log(`lette ${summary.fetched} · nuove ${summary.fresh} · pertinenti ${summary.relevant} · misurate ${summary.measured} · avvisi ${summary.notified}${dry ? ' · PROVA: nulla salvato, nessun avviso' : ''}`);
@@ -157,8 +163,10 @@ async function main() {
       break;
     }
     case 'topic': {
+      if (env.GITHUB_ACTIONS === 'true') throw new Error('il topic non si stampa nei log di Actions: aprilo dalla dashboard o lancia il comando sul tuo computer');
       const topic = env.NTFY_TOPIC || ntfyTopicFromPassword(needPassword());
-      console.log(`${topic}\n\nInstalla l'app ntfy, aggiungi un'iscrizione a questo topic (server ntfy.sh). Web: https://ntfy.sh/${topic}`);
+      const server = (env.NTFY_SERVER || 'https://ntfy.sh').replace(/\/$/, '');
+      console.log(`${topic}\n\nInstalla l'app ntfy, aggiungi un'iscrizione a questo topic (server ${new URL(server).host}). Web: ${server}/${topic}`);
       break;
     }
     case 'fonti': {

@@ -150,3 +150,21 @@ test('notify: testo con misura, link e collegamento alla richiesta', () => {
   assert.match(text, /https:\/\/x\.io\/r\/#\/r\/d1$/);
   assert.equal(itemLink('https://x.io/r/#/r/old', 'z'), 'https://x.io/r/#/r/z');
 });
+
+test('notifiche senza canali: stampate solo in locale (echo), mai nei log di Actions', async () => {
+  const { notifyAll } = await import('../lib/notify.mjs');
+  const item = { id: 'x', title: 'Titolo privato', url: 'https://p.com/1', classification: { score: 80, categories: ['migrazione'] } };
+  const logged = [];
+  await notifyAll([item], { channels: [], log: (m) => logged.push(m) });
+  assert.equal(logged.length, 0);
+  await notifyAll([item], { channels: [], log: (m) => logged.push(m), echo: true });
+  assert.match(logged.join(''), /Titolo privato/);
+});
+
+test('crypto: il topic ntfy costa quanto un tentativo sui dati (PBKDF2), non un hash veloce', () => {
+  const t0 = process.hrtime.bigint();
+  const t = ntfyTopicFromPassword('una password nuova per la misura');
+  const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+  assert.match(t, /^radar-[0-9a-f]{24}$/);
+  assert.ok(ms > 20, `troppo veloce: ${ms} ms`);
+});

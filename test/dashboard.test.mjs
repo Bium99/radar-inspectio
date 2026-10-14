@@ -67,3 +67,17 @@ test('writeDashboard: dati cifrati con la password; senza password si rifiuta', 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('payload: server e topic di ntfy per la dashboard, mai il token né gli altri segreti dei canali', async () => {
+  const { buildPayload } = await import('../lib/dashboard.mjs');
+  const { emptyStore } = await import('../lib/store.mjs');
+  const channels = [
+    { kind: 'ntfy', server: 'https://ntfy.mio.it', topic: 'tp', custom: true, token: 'tk_segreto' },
+    { kind: 'telegram', token: 'bot:segreto', chatId: '1' },
+  ];
+  const p = buildPayload(emptyStore(), { config: {}, channels });
+  assert.deepEqual(p.ntfy, { server: 'https://ntfy.mio.it', topic: 'tp', custom: true });
+  assert.deepEqual(p.channels, ['ntfy', 'telegram']);
+  assert.doesNotMatch(JSON.stringify(p), /segreto/);
+  assert.equal(buildPayload(emptyStore(), { config: {}, channels: [] }).ntfy, null);
+});

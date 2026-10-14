@@ -83,8 +83,12 @@ jobs:
       - name: Prova delle fonti
         if: steps.pronto.outputs.modo == 'prova'
         env:
+          # la prova non tocca la casella degli avvisi (li segnerebbe come letti) e non usa la password
           RADAR_PASSWORD: ''
           NTFY_OFF: '1'
+          IMAP_HOST: ''
+          IMAP_USER: ''
+          IMAP_PASS: ''
           RADAR_DEBUG: '1'
         run: node bin/radar.mjs prova-fonti --quante 60 ${{ inputs.candidati && '--candidati' || '' }}
 

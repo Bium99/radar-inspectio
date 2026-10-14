@@ -29,7 +29,11 @@ Fatto. Il primo giro manda **una sola** notifica di riepilogo; da lì in poi una
 - **Statistiche**: richieste al giorno, per fonte, per tipo di lavoro.
 - **Fonti**: la salute di ogni fonte a ogni giro, così vedi subito se qualcosa smette di funzionare.
 
-Gli stati e le note si salvano sul dispositivo. Per averli uguali su telefono e computer, in *Impostazioni* incolla un token GitHub «fine-grained» con *Contents: Read and write* **solo** su questo repository.
+Gli stati e le note si salvano sul dispositivo, cifrati con la tua password. Per averli uguali su telefono e computer, in *Impostazioni* incolla un token GitHub «fine-grained» con *Contents: Read and write* **solo** su questo repository: anche il token resta cifrato sul dispositivo, ma chi lo ottenesse potrebbe modificare il repository, quindi usalo solo su dispositivi tuoi.
+
+«Ricorda su questo dispositivo» non salva la password: conserva una chiave che il browser può usare ma non mostrare. «Blocca» la dimentica; «Dimentica tutto» cancella anche token, stati e note dal dispositivo.
+
+Attenzione a una cosa sola: tutte le pagine GitHub Pages dello stesso account (`tuonome.github.io/…`) condividono lo spazio dati del browser. Se sullo stesso account pubblichi altri siti con script di terzi (analytics, widget), non spuntare «Ricorda» e non salvare il token.
 
 ## Altri canali di notifica (facoltativi)
 

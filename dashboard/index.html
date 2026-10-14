@@ -333,14 +333,14 @@ dialog p, dialog li { color: var(--text-secondary); }
 
 <dialog id="dlg-settings" aria-labelledby="dlg-settings-title">
   <h2 id="dlg-settings-title">Impostazioni</h2>
-  <p>Gli stati (risposto, vinto…) e le note si salvano su questo dispositivo. Per vederli uguali su telefono e computer, incolla un token GitHub «fine-grained» con permesso <span class="mono">Contents: Read and write</span> solo su questo repository.</p>
+  <p>Gli stati (risposto, vinto…) e le note si salvano su questo dispositivo. Per vederli uguali su telefono e computer, incolla un token GitHub «fine-grained» con permesso <span class="mono">Contents: Read and write</span> solo su questo repository. Resta su questo dispositivo cifrato con la tua password, ma chi lo ottiene può modificare il repository: usalo solo su dispositivi tuoi.</p>
   <div class="field">
     <label for="gh-token">Token GitHub (facoltativo)</label>
     <input class="input" id="gh-token" type="password" autocomplete="off" placeholder="github_pat_…">
   </div>
   <div class="sync-state" id="sync-state"></div>
   <div class="dialog-actions">
-    <button class="btn" type="button" id="btn-forget">Dimentica password e token</button>
+    <button class="btn" type="button" id="btn-forget">Dimentica tutto su questo dispositivo</button>
     <button class="btn" type="button" data-close>Chiudi</button>
     <button class="btn primary" type="button" id="btn-save-token">Salva</button>
   </div>
@@ -382,8 +382,19 @@ dialog p, dialog li { color: var(--text-secondary); }
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage non disponibile */ } },
     del(k) { try { localStorage.removeItem(k); } catch { /* storage non disponibile */ } },
-    sget(k) { try { return sessionStorage.getItem(k); } catch { return null; } },
-    sset(k, v) { try { sessionStorage.setItem(k, v); } catch { /* storage non disponibile */ } },
+  };
+  // IndexedDB per la chiave di «Ricorda»: una CryptoKey non estraibile si conserva, ma non si legge
+  const idb = {
+    open() { return new Promise((ok, ko) => { const r = indexedDB.open('radar', 1); r.onupgradeneeded = () => r.result.createObjectStore('keys'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); }); },
+    async run(mode, fn) {
+      try {
+        const db = await this.open();
+        return await new Promise((ok, ko) => { const t = db.transaction('keys', mode); const q = fn(t.objectStore('keys')); t.oncomplete = () => ok(q?.result ?? null); t.onerror = () => ko(t.error); });
+      } catch { return null; }
+    },
+    get(k) { return this.run('readonly', (o) => o.get(k)); },
+    set(k, v) { return this.run('readwrite', (o) => o.put(v, k)); },
+    del(k) { return this.run('readwrite', (o) => o.delete(k)); },
   };
 
   // ——— cifratura: stesso formato di lib/crypto.mjs ———
@@ -396,33 +407,62 @@ dialog p, dialog li { color: var(--text-secondary); }
     return btoa(s);
   }
   const fromB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
-  const keyCache = new Map();
-  async function deriveKey(password, saltB64, iterations) {
-    // la password fa parte della chiave della cache: dopo un tentativo sbagliato quella giusta deve funzionare
-    const id = `${password}\u0000${saltB64}|${iterations}`;
-    if (keyCache.has(id)) return keyCache.get(id);
-    const base = await crypto.subtle.importKey('raw', te.encode(password), 'PBKDF2', false, ['deriveKey']);
-    const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: fromB64(saltB64), iterations, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
-    keyCache.set(id, key);
-    return key;
+  // la password diventa subito una chiave PBKDF2 non estraibile: in memoria e su disco non resta mai in chiaro
+  const baseKey = (password) => crypto.subtle.importKey('raw', te.encode(password), 'PBKDF2', false, ['deriveKey']);
+  // una cache per chiave di partenza: dopo un tentativo sbagliato quella giusta deve funzionare
+  const keyCache = new WeakMap();
+  async function deriveKey(base, saltB64, iterations) {
+    if (!keyCache.has(base)) keyCache.set(base, new Map());
+    const cache = keyCache.get(base);
+    const id = `${saltB64}|${iterations}`;
+    if (!cache.has(id)) cache.set(id, crypto.subtle.deriveKey({ name: 'PBKDF2', salt: fromB64(saltB64), iterations, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']));
+    return cache.get(id);
   }
-  async function decryptBox(box, password) {
+  async function decryptBox(box, base) {
     if (!box || box.v !== 1 || box.kdf !== 'PBKDF2-SHA256') throw new Error('Formato dei dati sconosciuto');
-    const key = await deriveKey(password, box.salt, box.iterations);
+    const key = await deriveKey(base, box.salt, box.iterations);
     let plain;
     try { plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(box.iv) }, key, fromB64(box.ct)); }
     catch { throw new Error('Password sbagliata'); }
     return JSON.parse(td.decode(plain));
   }
-  async function encryptLike(box, password, value) {
-    const key = await deriveKey(password, box.salt, box.iterations);
+  async function encryptLike(box, base, value) {
+    const key = await deriveKey(base, box.salt, box.iterations);
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, te.encode(JSON.stringify(value)));
     return { v: 1, kdf: 'PBKDF2-SHA256', iterations: box.iterations, salt: box.salt, iv: toB64(iv), ct: toB64(ct) };
   }
-  async function ntfyTopic(password) {
-    const h = new Uint8Array(await crypto.subtle.digest('SHA-256', te.encode(`ntfy|${password}`)));
-    return `radar-${[...h].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 24)}`;
+
+  // ——— cassaforte del dispositivo: token GitHub, stati e note, cifrati con una chiave ricavata dalla password ———
+  const VAULT = 'radar.vault.v1';
+  async function vaultKey(base) {
+    let salt = store.get('radar.vault.salt');
+    if (!salt) { salt = toB64(crypto.getRandomValues(new Uint8Array(16))); store.set('radar.vault.salt', salt); }
+    return deriveKey(base, salt, 600000);
+  }
+  async function vaultLoad(key) {
+    try {
+      const box = JSON.parse(store.get(VAULT) || 'null');
+      if (!box) return {};
+      return JSON.parse(td.decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(box.iv) }, key, fromB64(box.ct))));
+    } catch { return {}; } // password cambiata: la cassaforte vecchia non si apre più, si riparte da vuota
+  }
+  async function vaultSave() {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, S.vaultKey, te.encode(JSON.stringify(S.vault)));
+    store.set(VAULT, JSON.stringify({ iv: toB64(iv), ct: toB64(ct) }));
+  }
+  // le versioni precedenti tenevano password, token e note in chiaro: si spostano nella cassaforte e si cancellano
+  function migratePlaintext() {
+    try {
+      const old = JSON.parse(store.get('radar.statuses.v1') || 'null');
+      if (old) S.vault.statuses = { ...old, ...(S.vault.statuses ?? {}) };
+    } catch { /* niente */ }
+    if (store.get('radar.ghtoken') && !S.vault.token) S.vault.token = store.get('radar.ghtoken');
+    const had = ['radar.pw', 'radar.ghtoken', 'radar.statuses.v1'].some((k) => store.get(k) != null);
+    for (const k of ['radar.pw', 'radar.ghtoken', 'radar.statuses.v1']) store.del(k);
+    try { sessionStorage.removeItem('radar.pw'); } catch { /* niente */ }
+    return had;
   }
 
   // ——— stato dell'interfaccia ———
@@ -800,15 +840,16 @@ dialog p, dialog li { color: var(--text-secondary); }
 
   // ——— stati: locali, e sincronizzati via GitHub se c'è un token ———
   const SYNC = { branch: 'stati', path: 'stati.enc.json' };
-  function loadLocal() { try { S.local = JSON.parse(store.get('radar.statuses.v1') || '{}'); } catch { S.local = {}; } }
-  function saveLocal() { store.set('radar.statuses.v1', JSON.stringify(S.local)); }
+  function loadLocal() { S.local = S.vault.statuses ?? {}; }
+  function saveLocal() { S.vault.statuses = S.local; vaultSave().catch(() => {}); }
+  const ghToken = () => S.vault?.token ?? null;
   function setSync(text) { $('#sync-state').textContent = text; }
 
   async function setStatus(it, status, note) {
     S.local[it.id] = { status, note: note || undefined, at: new Date().toISOString() };
     saveLocal();
     render();
-    const token = store.get('radar.ghtoken');
+    const token = ghToken();
     if (token && S.payload.repo) pushStatuses(token).catch((e) => setSync(`Sincronizzazione non riuscita: ${e.message}`));
   }
 
@@ -825,7 +866,7 @@ dialog p, dialog li { color: var(--text-secondary); }
     const file = await gh(token, `/contents/${SYNC.path}?ref=${SYNC.branch}`);
     if (!file) return null;
     const box = JSON.parse(atob(file.content.replace(/\n/g, '')));
-    const data = await decryptBox(box, S.password);
+    const data = await decryptBox(box, S.base);
     return { sha: file.sha, box, statuses: data.statuses ?? {} };
   }
   function mergeStatuses(a, b) {
@@ -838,7 +879,7 @@ dialog p, dialog li { color: var(--text-secondary); }
     const remote = await pullStatuses(token);
     if (!remote) throw new Error(`manca il branch «${SYNC.branch}»: lo crea il radar al primo giro`);
     const merged = mergeStatuses(remote.statuses, S.local);
-    const box = await encryptLike(remote.box, S.password, { version: 1, statuses: merged });
+    const box = await encryptLike(remote.box, S.base, { version: 1, statuses: merged });
     try {
       await gh(token, `/contents/${SYNC.path}`, { method: 'PUT', body: JSON.stringify({ message: 'stati: aggiornamento dalla dashboard', content: btoa(JSON.stringify(box)), sha: remote.sha, branch: SYNC.branch }) });
     } catch (e) {
@@ -849,41 +890,52 @@ dialog p, dialog li { color: var(--text-secondary); }
     setSync(`Sincronizzato ${fmtDate.format(new Date())}`);
   }
 
-  // ——— notifiche: il topic ntfy si ricava dalla password ———
-  async function openNotify() {
-    const topic = await ntfyTopic(S.password);
+  // ——— notifiche: server e topic li scrive il radar dentro i dati cifrati ———
+  function openNotify() {
     const channels = S.payload.channels ?? [];
-    const web = `https://ntfy.sh/${topic}`;
-    $('#notify-body').replaceChildren(
-      el('p', {}, channels.length ? `Canali attivi sul radar: ${channels.join(', ')}.` : 'Nessun canale attivo sul radar.'),
-      el('h3', {}, 'ntfy (consigliato, nessun account)'),
-      el('ol', {},
-        el('li', {}, 'Installa l\'app ntfy (Android o iPhone), oppure usa la versione web.'),
-        el('li', {}, 'Aggiungi un\'iscrizione al topic qui sotto, server ntfy.sh.'),
-        el('li', {}, 'Fatto: ogni richiesta sopra soglia arriva come notifica, con i pulsanti per aprire l\'annuncio e la dashboard.')),
-      el('p', {}, 'Topic: ', el('span', { class: 'mono' }, topic), ' ', el('button', { class: 'btn small', type: 'button', onclick: async (e) => { try { await navigator.clipboard.writeText(topic); e.currentTarget.textContent = 'Copiato'; } catch { /* niente appunti */ } } }, 'Copia')),
-      el('p', {}, linkBtn(web, 'Apri il topic nel browser ↗', 'btn')),
-      el('p', { class: 'meta' }, 'Il topic è derivato dalla tua password: chi non la conosce non può indovinarlo. Se cambi password, cambia anche il topic.'),
-      el('h3', {}, 'Altri canali'),
-      el('p', {}, 'Telegram, Discord, Slack o email si attivano aggiungendo i segreti del repository descritti nel README.'),
-    );
+    const ntfy = S.payload.ntfy;
+    const parts = [el('p', {}, channels.length ? `Canali attivi sul radar: ${channels.join(', ')}.` : 'Nessun canale attivo sul radar.')];
+    if (ntfy?.topic) {
+      const server = safeUrl(ntfy.server) ?? 'https://ntfy.sh/';
+      const host = new URL(server).host;
+      const web = `${server.replace(/\/$/, '')}/${encodeURIComponent(ntfy.topic)}`;
+      parts.push(
+        el('h3', {}, 'ntfy (consigliato, nessun account)'),
+        el('ol', {},
+          el('li', {}, 'Installa l\'app ntfy (Android o iPhone), oppure usa la versione web.'),
+          el('li', {}, `Aggiungi un'iscrizione al topic qui sotto${host === 'ntfy.sh' ? ', server ntfy.sh' : `, server ${host}`}.`),
+          el('li', {}, 'Fatto: ogni richiesta sopra soglia arriva come notifica, con i pulsanti per aprire l\'annuncio e la dashboard.')),
+        el('p', {}, 'Topic: ', el('span', { class: 'mono' }, ntfy.topic), ' ', el('button', { class: 'btn small', type: 'button', onclick: async (e) => { try { await navigator.clipboard.writeText(ntfy.topic); e.currentTarget.textContent = 'Copiato'; } catch { /* niente appunti */ } } }, 'Copia')),
+        el('p', {}, linkBtn(web, 'Apri il topic nel browser ↗', 'btn')),
+        el('p', { class: 'meta' }, ntfy.custom ? 'È il topic che hai scelto con il segreto NTFY_TOPIC.' : 'Il topic è ricavato dalla tua password con la stessa protezione dei dati: senza la password non si indovina. Tienilo per te: chi lo conosce legge le notifiche.'),
+      );
+    } else {
+      parts.push(el('p', { class: 'meta' }, 'ntfy è spento (segreto NTFY_OFF): le notifiche arrivano solo dagli altri canali.'));
+    }
+    parts.push(el('h3', {}, 'Altri canali'), el('p', {}, 'Telegram, Discord, Slack o email si attivano aggiungendo i segreti del repository descritti nel README.'));
+    $('#notify-body').replaceChildren(...parts);
     $('#dlg-notify').showModal();
   }
 
   // ——— avvio ———
-  async function unlock(password, remember) {
+  async function unlock(base, remember) {
     const res = await fetch('data.enc.json', { cache: 'no-store' });
     if (!res.ok) throw new Error(res.status === 404 ? 'Dati non ancora pubblicati: aspetta il primo giro del radar' : `Errore nel caricare i dati (${res.status})`);
-    const payload = await decryptBox(await res.json(), password);
+    const box = await res.json();
+    const [payload, vk] = await Promise.all([decryptBox(box, base), vaultKey(base)]);
     S.payload = { items: [], runs: [], statuses: {}, ...payload };
-    S.password = password;
-    store.sset('radar.pw', password);
-    if (remember) store.set('radar.pw', password);
+    S.base = base;
+    S.vaultKey = vk;
+    S.vault = await vaultLoad(vk);
+    if (migratePlaintext()) await vaultSave();
+    // «Ricorda» tiene la chiave (non la password) in IndexedDB; senza la spunta non resta nulla dopo la chiusura
+    if (remember === true) await idb.set('base', base);
+    else if (remember === false) await idb.del('base');
     loadLocal();
     $('#lock').hidden = true;
     $('#app').hidden = false;
     route();
-    const token = store.get('radar.ghtoken');
+    const token = ghToken();
     if (token && S.payload.repo) pullStatuses(token).then((r) => { if (r) { S.payload.statuses = mergeStatuses(S.payload.statuses, r.statuses); render(); } }).catch(() => {});
   }
 
@@ -892,7 +944,7 @@ dialog p, dialog li { color: var(--text-secondary); }
     const btn = $('#unlock-btn');
     btn.disabled = true; btn.textContent = 'Sblocco…';
     $('#lock-error').textContent = '';
-    try { await unlock($('#pw').value, $('#remember').checked); }
+    try { const pw = $('#pw'); await unlock(await baseKey(pw.value), $('#remember').checked); pw.value = ''; }
     catch (err) { $('#lock-error').textContent = err.message; }
     finally { btn.disabled = false; btn.textContent = 'Sblocca'; }
   });
@@ -910,15 +962,22 @@ dialog p, dialog li { color: var(--text-secondary); }
   });
   $$('dialog [data-close]').forEach((b) => b.addEventListener('click', () => b.closest('dialog').close()));
   $('#btn-notify').addEventListener('click', openNotify);
-  $('#btn-settings').addEventListener('click', () => { $('#gh-token').value = store.get('radar.ghtoken') ?? ''; setSync(store.get('radar.ghtoken') ? 'Token salvato su questo dispositivo.' : 'Nessun token: gli stati restano su questo dispositivo.'); $('#dlg-settings').showModal(); });
+  $('#btn-settings').addEventListener('click', () => { $('#gh-token').value = ghToken() ?? ''; setSync(ghToken() ? 'Token salvato su questo dispositivo, cifrato con la tua password.' : 'Nessun token: gli stati restano su questo dispositivo.'); $('#dlg-settings').showModal(); });
   $('#btn-save-token').addEventListener('click', async () => {
     const t = $('#gh-token').value.trim();
-    if (!t) { store.del('radar.ghtoken'); setSync('Token rimosso.'); return; }
-    store.set('radar.ghtoken', t);
+    if (!t) { delete S.vault.token; await vaultSave(); setSync('Token rimosso.'); return; }
+    S.vault.token = t;
+    await vaultSave();
     try { await pushStatuses(t); } catch (e) { setSync(`Token salvato, ma la sincronizzazione non è riuscita: ${e.message}`); }
   });
-  $('#btn-forget').addEventListener('click', () => { store.del('radar.pw'); store.del('radar.ghtoken'); try { sessionStorage.clear(); } catch { /* niente */ } location.reload(); });
-  $('#btn-lock').addEventListener('click', () => { try { sessionStorage.removeItem('radar.pw'); } catch { /* niente */ } location.reload(); });
+  // «Blocca» chiude davvero: dimentica anche la chiave di «Ricorda». «Dimentica» cancella anche token, stati e note
+  $('#btn-forget').addEventListener('click', async () => {
+    await idb.del('base');
+    for (const k of [VAULT, 'radar.vault.salt', 'radar.pw', 'radar.ghtoken', 'radar.statuses.v1']) store.del(k);
+    try { sessionStorage.clear(); } catch { /* niente */ }
+    location.reload();
+  });
+  $('#btn-lock').addEventListener('click', async () => { await idb.del('base'); location.reload(); });
   $('#btn-theme').addEventListener('click', () => {
     const cur = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     const next = cur === 'dark' ? 'light' : 'dark';
@@ -928,8 +987,13 @@ dialog p, dialog li { color: var(--text-secondary); }
   const savedTheme = store.get('radar.theme');
   if (savedTheme) document.documentElement.dataset.theme = savedTheme;
 
-  const saved = store.sget('radar.pw') || store.get('radar.pw');
-  if (saved) unlock(saved, false).catch(() => { $('#lock').hidden = false; });
+  idb.get('base').then((base) => {
+    if (base) return unlock(base, null);
+    // una password in chiaro lasciata da una versione precedente: si usa una volta per spostarla, poi sparisce
+    const legacy = store.get('radar.pw');
+    if (legacy) return baseKey(legacy).then((b) => unlock(b, true));
+    return null;
+  }).catch(() => { $('#lock').hidden = false; });
   setInterval(() => { if (S.payload) renderHeader(); }, 60000);
   let resizeTimer = null;
   window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (S.payload && S.view === 'stats') renderStats(); }, 150); });
