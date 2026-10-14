@@ -37,3 +37,12 @@ test('makeItem: id stabile, siti del cliente separati dai link di piattaforma', 
   assert.deepEqual(a.siteUrls, ['https://acme-studio.com']);
   assert.equal(a.status, 'nuovo');
 });
+
+test('detectLang: anche francese, spagnolo e tedesco', async () => {
+  const { detectLang } = await import('../lib/util.mjs');
+  assert.equal(detectLang('Nous cherchons un développeur pour la refonte de notre site internet avec des animations'), 'fr');
+  assert.equal(detectLang('Cerchiamo uno sviluppatore per rifare il nostro sito, mandateci un preventivo'), 'it');
+  assert.equal(detectLang('Buscamos un desarrollador para nuestro proyecto y el sitio'), 'es');
+  assert.equal(detectLang('Wir suchen einen Entwickler für unsere Webseite und die Animationen'), 'de');
+  assert.equal(detectLang('We need a developer for our website'), 'en');
+});

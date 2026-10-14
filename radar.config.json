@@ -5,6 +5,8 @@
   "notifyMinScore": 45,
   "measureMinScore": 30,
   "retentionDays": 60,
+  "maxAgeDays": 30,
+  "notifyMaxAgeDays": 3,
   "storePath": "data/radar.json",
   "disabledSources": [],
   "feeds": [],

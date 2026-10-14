@@ -182,3 +182,32 @@ test('collaudo 4: un segnale solo nominato in un testo lungo vale meno che nel t
   assert.ok(body.reasons[0].includes('solo nominata nel testo'));
   assert.equal(body.terms.webflow_framer, 'Webflow');
 });
+
+// ——— quinto collaudo (2026-10-14): Codeur in francese, annunci chiusi, Framer Motion come competenza ———
+test('collaudo 5: il francese non è italiano (niente bonus lingua); «moins de 500 €» è un tetto', () => {
+  const it = fromMarket('Recherche développeur Webflow', 'Budget : Moins de 500 € - Catégories : Migration ou refonte de site, CMS. Nous cherchons un développeur pour notre site.');
+  assert.equal(it.lang, 'fr');
+  assert.equal(it.budget.upTo, true);
+  const c = classify(it, cfg, { now });
+  assert.ok(!c.reasons.some((r) => r.startsWith('lingua')));
+  assert.ok(c.reasons.some((r) => r.includes('al massimo')));
+  assert.equal(c.score, 20 + 10 - 10);
+});
+
+test('collaudo 5: annunci chiusi fuori, qualunque cosa contengano', () => {
+  for (const t of ['Job Filled: GSAP Developer for Cinematic Scroll Experience', '[COMPLETED]Scroll Trigger that updates menu colors', '[Hired] Webflow migration']) {
+    const c = classify(fromMarket(t, 'GSAP scroll animations'), cfg, { now });
+    assert.equal(c.score, 0, t);
+    assert.equal(c.closed, true, t);
+  }
+  assert.ok(!classify(fromMarket('Found a bug in my GSAP scroll animation, need a fix'), cfg, { now }).closed);
+});
+
+test('collaudo 5: Framer Motion o GSAP nell\'elenco delle competenze valgono meno che nel titolo', () => {
+  const stack = classify(fromMarket('Claude Code / automatisation IA / Mac', 'Workflow website builder avec Claude Code, composants React, Framer Motion.'), cfg, { now });
+  assert.deepEqual(stack.categories, ['animazioni']);
+  assert.equal(stack.score, 12 + 10);
+  const skills = classify(fromMarket('Creation de sites web', 'React.js ou Vue.js. GSAP ou Framer Motion pour des animations modernes.'), cfg, { now });
+  assert.equal(skills.score, 25 + 10);
+  assert.ok(!classify(fromMarket('React/Vite/Three.js 3D Development Specialist', 'Debugging visual, positioning, animation, and performance issues.'), cfg, { now }).categories.includes('bug_animazione'));
+});

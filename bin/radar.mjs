@@ -112,7 +112,7 @@ async function main() {
       const summary = await runScan({ config, env, store, specs, notify: false });
       for (const s of summary.sources) console.log(`${s.error ? 'ERRORE' : 'ok    '} ${s.id.padEnd(24)} letti ${String(s.count).padStart(4)}  richieste ${s.requests}  ${s.ms} ms${s.error ? `  ${s.error}` : ''}`);
       const top = Object.values(store.items).filter((it) => it.status !== 'scartato').sort((a, b) => b.classification.score - a.classification.score);
-      console.log(`\nlette ${summary.fetched} · nuove ${summary.fresh} · pertinenti ${summary.relevant} · misurate ${summary.measured}`);
+      console.log(`\nlette ${summary.fetched} · nuove ${summary.fresh} · troppo vecchie ${summary.stale} · pertinenti ${summary.relevant} · misurate ${summary.measured}`);
       const bySource = {};
       for (const it of top) bySource[it.sourceId] = (bySource[it.sourceId] ?? 0) + 1;
       console.log(`pertinenti per fonte: ${JSON.stringify(bySource)}\n`);

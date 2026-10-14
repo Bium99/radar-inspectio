@@ -127,7 +127,7 @@ test('scan: al primo giro un solo riepilogo; annunci vecchi non suonano', async 
   const feeds = { 'https://a.com/feed': `<?xml version="1.0"?><rss version="2.0"><channel>
     <item><title>Migrate Webflow site to Astro</title><link>https://p.com/1</link><description>same design</description><pubDate>Tue, 14 Oct 2026 09:00:00 GMT</pubDate></item>
     <item><title>Framer to Next.js migration</title><link>https://p.com/2</link><description>pixel perfect</description><pubDate>Tue, 14 Oct 2026 08:00:00 GMT</pubDate></item>
-    <item><title>Old: GSAP animation rebuild of our site</title><link>https://p.com/3</link><description>migrate webflow</description><pubDate>Mon, 01 Sep 2026 08:00:00 GMT</pubDate></item>
+    <item><title>Old: GSAP animation rebuild of our site</title><link>https://p.com/3</link><description>migrate webflow</description><pubDate>Thu, 01 Oct 2026 08:00:00 GMT</pubDate></item>
   </channel></rss>` };
   const sent = [];
   const fetchImpl = async (url, init) => { if (url.startsWith('https://ntfy.sh')) { sent.push(JSON.parse(init.body)); return new Response('{}'); } return siteFetch(feeds)(url); };
@@ -229,4 +229,16 @@ test('scan: lo stesso annuncio con un altro link (bacheche, due fonti) è una ri
   links = ['https://b.com/jobs/4'];
   const second = await runScan({ config, env: {}, store, specs, fetchImpl, notify: false, now: new Date('2026-10-14T11:00:00Z') });
   assert.equal(second.fresh, 0, 'ripubblicato con un link nuovo: già visto');
+});
+
+test('scan: un annuncio di mesi fa non entra (alcune ricerche restituiscono anche quelli chiusi)', async () => {
+  const feed = `<?xml version="1.0"?><rss version="2.0"><channel>
+    <item><title>Migrate our Webflow site to Next.js</title><link>https://o.com/1</link><description>same design</description><pubDate>Tue, 13 Oct 2026 09:00:00 GMT</pubDate></item>
+    <item><title>Migrate our Wix site to Astro</title><link>https://o.com/2</link><description>same design</description><pubDate>Mon, 02 Mar 2026 09:00:00 GMT</pubDate></item>
+  </channel></rss>`;
+  const store = emptyStore();
+  const s = await runScan({ config: { userAgent: 'T', maxAgeDays: 30 }, env: {}, store, specs: [{ id: 'o', label: 'O', type: 'rss', demand: true, url: 'https://o.com/feed' }], fetchImpl: async () => new Response(feed), notify: false, now: new Date('2026-10-14T10:00:00Z') });
+  assert.equal(s.stale, 1);
+  assert.equal(s.fresh, 1);
+  assert.deepEqual(Object.values(store.items).map((i) => i.url), ['https://o.com/1']);
 });

@@ -67,10 +67,10 @@ jobs:
             echo "modo=giro" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: steps.pronto.outputs.modo != 'attesa'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         if: steps.pronto.outputs.modo != 'attesa'
         with:
           node-version: 22
