@@ -1,0 +1,932 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="__CSP__">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>Radar richieste</title>
+<link rel="icon" href="data:,">
+<style>
+:root {
+  color-scheme: light;
+  --surface-0: #f4f4f2;
+  --surface-1: #fcfcfb;
+  --surface-2: #f0efec;
+  --border: #e2e1dc;
+  --border-strong: #c9c8c2;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #6f6e69;
+  --accent: #2a78d6;
+  --accent-ink: #1c5cab;
+  --accent-wash: #e6f0fc;
+  --series-1: #2a78d6;
+  --score-low: #cde2fb;
+  --score-mid: #86b6ef;
+  --score-high: #2a78d6;
+  --score-high-ink: #ffffff;
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --good-ink: #006300;
+  --critical-ink: #a32727;
+  --warning-ink: #7a5300;
+  --shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04);
+  --radius: 10px;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface-0: #121211;
+    --surface-1: #1a1a19;
+    --surface-2: #242422;
+    --border: #2f2f2c;
+    --border-strong: #45453f;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #9a998f;
+    --accent: #3987e5;
+    --accent-ink: #86b6ef;
+    --accent-wash: #16263b;
+    --series-1: #3987e5;
+    --score-low: #184f95;
+    --score-mid: #256abf;
+    --score-high: #5598e7;
+    --score-high-ink: #0b0b0b;
+    --good-ink: #5fd35f;
+    --critical-ink: #f08a8a;
+    --warning-ink: #fab219;
+    --shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #121211;
+  --surface-1: #1a1a19;
+  --surface-2: #242422;
+  --border: #2f2f2c;
+  --border-strong: #45453f;
+  --text-primary: #f0efec;
+  --text-secondary: #c3c2b7;
+  --text-muted: #9a998f;
+  --accent: #3987e5;
+  --accent-ink: #86b6ef;
+  --accent-wash: #16263b;
+  --series-1: #3987e5;
+  --score-low: #184f95;
+  --score-mid: #256abf;
+  --score-high: #5598e7;
+  --score-high-ink: #0b0b0b;
+  --good-ink: #5fd35f;
+  --critical-ink: #f08a8a;
+  --warning-ink: #fab219;
+  --shadow: 0 1px 2px rgba(0,0,0,.4);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--surface-0); color: var(--text-primary); font: 14px/1.45 var(--font); -webkit-font-smoothing: antialiased; }
+[hidden] { display: none !important; }
+a { color: var(--accent-ink); }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn { border: 1px solid var(--border-strong); background: var(--surface-1); border-radius: 8px; padding: 6px 12px; min-height: 34px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: var(--text-primary); }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.small { min-height: 28px; padding: 3px 9px; font-size: 13px; }
+.btn[aria-pressed="true"] { background: var(--accent-wash); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+/* sblocco */
+#lock { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.lock-card { width: 100%; max-width: 380px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; padding: 28px 24px; box-shadow: var(--shadow); }
+.lock-card h1 { margin: 0 0 4px; font-size: 20px; }
+.lock-card p { margin: 0 0 18px; color: var(--text-secondary); }
+.field { display: grid; gap: 6px; margin-bottom: 14px; }
+.field label { font-weight: 600; font-size: 13px; }
+.input { width: 100%; border: 1px solid var(--border-strong); background: var(--surface-1); border-radius: 8px; padding: 8px 10px; min-height: 38px; }
+.check { display: flex; gap: 8px; align-items: center; color: var(--text-secondary); margin-bottom: 18px; }
+.error { color: var(--critical-ink); min-height: 20px; margin-top: 10px; }
+
+/* struttura */
+header.top { position: sticky; top: 0; z-index: 20; background: var(--surface-1); border-bottom: 1px solid var(--border); }
+.top-inner { max-width: 1400px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.brand { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+.brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-wash); }
+.updated { color: var(--text-secondary); font-size: 13px; }
+.spacer { flex: 1; }
+nav.tabs { display: flex; gap: 4px; }
+nav.tabs a { text-decoration: none; color: var(--text-secondary); padding: 6px 10px; border-radius: 8px; font-weight: 500; }
+nav.tabs a[aria-current="page"] { color: var(--text-primary); background: var(--surface-2); font-weight: 600; }
+main { max-width: 1400px; margin: 0 auto; padding: 16px; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+.seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; background: var(--surface-1); }
+.seg button { border: 0; background: transparent; padding: 6px 10px; min-height: 34px; border-right: 1px solid var(--border); }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--accent-wash); color: var(--accent-ink); font-weight: 600; }
+.filters .input { width: auto; min-height: 34px; padding: 5px 8px; }
+.filters input[type="search"] { min-width: 220px; flex: 1 1 220px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--border-strong); background: var(--surface-1); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; }
+.chip[aria-pressed="true"] { background: var(--accent-wash); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+.kpis { display: grid; grid-template-columns: 1.4fr repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+.tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+.tile .label { color: var(--text-secondary); font-size: 13px; }
+.tile .value { font-size: 26px; font-weight: 650; line-height: 1.15; margin-top: 2px; }
+.tile.hero .value { font-size: 48px; }
+.tile .sub { color: var(--text-muted); font-size: 12.5px; }
+
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 14px; align-items: start; }
+.panel { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius); }
+.list-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text-secondary); font-size: 13px; }
+.list { list-style: none; margin: 0; padding: 0; max-height: calc(100vh - 290px); overflow: auto; }
+.row { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--border); background: transparent; padding: 12px 14px; }
+.row:hover { background: var(--surface-2); }
+.row[aria-current="true"] { background: var(--accent-wash); box-shadow: inset 3px 0 0 var(--accent); }
+.score { width: 44px; height: 44px; border-radius: 10px; display: grid; place-items: center; font-weight: 700; font-size: 15px; background: var(--score-low); color: var(--text-primary); }
+.score.mid { background: var(--score-mid); }
+.score.high { background: var(--score-high); color: var(--score-high-ink); }
+.row-title { font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.meta { color: var(--text-secondary); font-size: 12.5px; margin-top: 2px; }
+.tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.tag { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: var(--surface-2); color: var(--text-secondary); border: 1px solid var(--border); }
+.tag.flag { color: var(--critical-ink); border-color: var(--critical); background: transparent; }
+.status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
+.status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--border-strong); }
+.status.s-nuova::before { background: var(--accent); }
+.status.s-risposto::before { background: var(--warning); }
+.status.s-vinto::before { background: var(--good); }
+.status.s-perso::before, .status.s-scartato::before { background: var(--text-muted); }
+.empty { padding: 36px 20px; text-align: center; color: var(--text-secondary); }
+
+.detail { position: sticky; top: 72px; max-height: calc(100vh - 90px); overflow: auto; }
+.detail-inner { padding: 18px 20px 24px; }
+.detail h2 { font-size: 19px; margin: 0 0 6px; line-height: 1.3; }
+.detail h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin: 22px 0 8px; }
+.detail .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.status-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+.kv { display: grid; grid-template-columns: 130px 1fr; gap: 4px 12px; font-size: 13.5px; }
+.kv dt { color: var(--text-secondary); }
+.kv dd { margin: 0; }
+.reasons { margin: 0; padding-left: 18px; color: var(--text-secondary); }
+.post, .draft { white-space: pre-wrap; word-wrap: break-word; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-size: 13.5px; }
+.draft { font-family: var(--font); }
+.note { width: 100%; min-height: 70px; resize: vertical; }
+.close-detail { display: none; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+.card { padding: 16px 18px; }
+.card h2 { font-size: 15px; margin: 0 0 2px; }
+.card .sub { color: var(--text-secondary); font-size: 12.5px; margin-bottom: 10px; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart .bar { fill: var(--series-1); }
+.chart .bar.lift { filter: brightness(1.18); }
+.chart .axis { fill: var(--text-muted); font-size: 11.5px; }
+.chart .grid { stroke: var(--border); stroke-width: 1; }
+.chart .baseline { stroke: var(--border-strong); stroke-width: 1; }
+.chart .val { fill: var(--text-secondary); font-size: 11.5px; }
+.chart .hit { fill: transparent; cursor: default; }
+.table-toggle { margin-top: 8px; }
+table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.data th, table.data td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+table.data th { color: var(--text-secondary); font-weight: 600; }
+table.data td.num, table.data th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.health { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.health svg { flex: none; }
+.health.ok { color: var(--good-ink); }
+.health.err { color: var(--critical-ink); }
+.health.idle { color: var(--warning-ink); }
+
+#tooltip { position: fixed; z-index: 50; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border-strong); border-radius: 8px; padding: 6px 9px; box-shadow: var(--shadow); font-size: 12.5px; }
+#tooltip strong { display: block; font-size: 14px; }
+
+dialog { border: 1px solid var(--border); border-radius: 14px; background: var(--surface-1); color: var(--text-primary); max-width: 560px; width: calc(100% - 32px); padding: 22px; box-shadow: var(--shadow); }
+dialog::backdrop { background: rgba(0,0,0,.35); }
+dialog h2 { margin: 0 0 8px; font-size: 18px; }
+dialog p, dialog li { color: var(--text-secondary); }
+.mono { font-family: var(--mono); font-size: 13px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; word-break: break-all; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.sync-state { font-size: 12.5px; color: var(--text-secondary); }
+
+@media (max-width: 980px) {
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .tile.hero { grid-column: 1 / -1; }
+  .layout { grid-template-columns: 1fr; }
+  .list { max-height: none; }
+  .detail { position: fixed; inset: 0; top: 0; max-height: none; z-index: 30; border-radius: 0; }
+  .close-detail { display: inline-flex; }
+}
+@media (max-width: 560px) {
+  .filters input[type="search"] { min-width: 0; flex-basis: 100%; }
+  .filters select.input { flex: 1 1 calc(50% - 4px); min-width: 0; }
+  .top-inner { gap: 8px; }
+  .kv { grid-template-columns: 1fr; }
+  .cards { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div id="lock">
+  <form class="lock-card" id="lock-form" autocomplete="off">
+    <h1>Radar richieste</h1>
+    <p>I dati sono cifrati. Inserisci la password del radar (il segreto RADAR_PASSWORD).</p>
+    <div class="field">
+      <label for="pw">Password</label>
+      <input class="input" id="pw" type="password" autocomplete="current-password" required>
+    </div>
+    <label class="check"><input type="checkbox" id="remember"> Ricorda su questo dispositivo</label>
+    <button class="btn primary" type="submit" id="unlock-btn">Sblocca</button>
+    <div class="error" id="lock-error" role="alert"></div>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header class="top">
+    <div class="top-inner">
+      <div class="brand"><span class="brand-dot" aria-hidden="true"></span>Radar</div>
+      <nav class="tabs" aria-label="Sezioni">
+        <a href="#/" data-view="list">Richieste</a>
+        <a href="#/statistiche" data-view="stats">Statistiche</a>
+        <a href="#/fonti" data-view="sources">Fonti</a>
+      </nav>
+      <span class="updated" id="updated"></span>
+      <span class="spacer"></span>
+      <button class="btn small" id="btn-notify" type="button">Notifiche</button>
+      <button class="btn small" id="btn-settings" type="button">Impostazioni</button>
+      <button class="btn small ghost" id="btn-theme" type="button" aria-label="Cambia tema">Tema</button>
+      <button class="btn small ghost" id="btn-lock" type="button">Blocca</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="filters" role="search">
+      <div class="seg" id="f-range" role="group" aria-label="Periodo">
+        <button type="button" data-range="1">24 ore</button>
+        <button type="button" data-range="7">7 giorni</button>
+        <button type="button" data-range="30">30 giorni</button>
+        <button type="button" data-range="0">Tutto</button>
+      </div>
+      <input class="input" id="f-q" type="search" placeholder="Cerca nel titolo e nel testo  ( / )" aria-label="Cerca">
+      <select class="input" id="f-status" aria-label="Stato">
+        <option value="attive">Attive</option>
+        <option value="nuova">Nuove</option>
+        <option value="risposto">Risposte</option>
+        <option value="vinto">Vinte</option>
+        <option value="perso">Perse</option>
+        <option value="scartato">Scartate</option>
+        <option value="tutte">Tutte</option>
+      </select>
+      <select class="input" id="f-score" aria-label="Punteggio minimo">
+        <option value="0">Ogni punteggio</option>
+        <option value="30">≥ 30</option>
+        <option value="45">≥ 45</option>
+        <option value="60">≥ 60</option>
+        <option value="80">≥ 80</option>
+      </select>
+      <select class="input" id="f-source" aria-label="Fonte"><option value="">Tutte le fonti</option></select>
+      <select class="input" id="f-lang" aria-label="Lingua">
+        <option value="">Ogni lingua</option>
+        <option value="it">Italiano</option>
+        <option value="en">Inglese</option>
+      </select>
+      <div class="chips" id="f-cats" role="group" aria-label="Categorie"></div>
+    </div>
+
+    <section class="kpis" id="kpis" aria-label="Indicatori"></section>
+
+    <section id="view-list" class="layout">
+      <div class="panel">
+        <div class="list-head"><span id="list-count"></span><span id="list-sort">Ordinate per punteggio, poi per data</span></div>
+        <ul class="list" id="list"></ul>
+      </div>
+      <aside class="panel detail" id="detail" aria-live="polite"></aside>
+    </section>
+
+    <section id="view-stats" hidden>
+      <div class="cards">
+        <div class="panel card chart" id="chart-days"></div>
+        <div class="panel card chart" id="chart-sources"></div>
+        <div class="panel card chart" id="chart-cats"></div>
+      </div>
+    </section>
+
+    <section id="view-sources" hidden>
+      <div class="panel card" id="sources-card"></div>
+    </section>
+  </main>
+</div>
+
+<div id="tooltip" role="tooltip" hidden></div>
+
+<dialog id="dlg-notify" aria-labelledby="dlg-notify-title">
+  <h2 id="dlg-notify-title">Notifiche sul telefono</h2>
+  <div id="notify-body"></div>
+  <div class="dialog-actions"><button class="btn" type="button" data-close>Chiudi</button></div>
+</dialog>
+
+<dialog id="dlg-settings" aria-labelledby="dlg-settings-title">
+  <h2 id="dlg-settings-title">Impostazioni</h2>
+  <p>Gli stati (risposto, vinto…) e le note si salvano su questo dispositivo. Per vederli uguali su telefono e computer, incolla un token GitHub «fine-grained» con permesso <span class="mono">Contents: Read and write</span> solo su questo repository.</p>
+  <div class="field">
+    <label for="gh-token">Token GitHub (facoltativo)</label>
+    <input class="input" id="gh-token" type="password" autocomplete="off" placeholder="github_pat_…">
+  </div>
+  <div class="sync-state" id="sync-state"></div>
+  <div class="dialog-actions">
+    <button class="btn" type="button" id="btn-forget">Dimentica password e token</button>
+    <button class="btn" type="button" data-close>Chiudi</button>
+    <button class="btn primary" type="button" id="btn-save-token">Salva</button>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+
+  // ——— utilità DOM: il testo degli annunci è di sconosciuti, quindi solo textContent, mai HTML ———
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+  function el(tag, attrs = {}, ...children) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v == null || v === false) continue;
+      if (k === 'class') n.className = v;
+      else if (k === 'text') n.textContent = v;
+      else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
+      else n.setAttribute(k, v === true ? '' : String(v));
+    }
+    for (const c of children.flat()) {
+      if (c == null || c === false) continue;
+      n.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    }
+    return n;
+  }
+  const SVG = 'http://www.w3.org/2000/svg';
+  function sv(tag, attrs = {}, ...children) {
+    const n = document.createElementNS(SVG, tag);
+    for (const [k, v] of Object.entries(attrs)) if (v != null) n.setAttribute(k, String(v));
+    for (const c of children.flat()) if (c != null) n.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    return n;
+  }
+  function safeUrl(u) {
+    try { const x = new URL(u); return x.protocol === 'https:' || x.protocol === 'http:' ? x.href : null; } catch { return null; }
+  }
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage non disponibile */ } },
+    del(k) { try { localStorage.removeItem(k); } catch { /* storage non disponibile */ } },
+    sget(k) { try { return sessionStorage.getItem(k); } catch { return null; } },
+    sset(k, v) { try { sessionStorage.setItem(k, v); } catch { /* storage non disponibile */ } },
+  };
+
+  // ——— cifratura: stesso formato di lib/crypto.mjs ———
+  const te = new TextEncoder();
+  const td = new TextDecoder();
+  function toB64(buf) {
+    const bytes = new Uint8Array(buf);
+    let s = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(s);
+  }
+  const fromB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  const keyCache = new Map();
+  async function deriveKey(password, saltB64, iterations) {
+    // la password fa parte della chiave della cache: dopo un tentativo sbagliato quella giusta deve funzionare
+    const id = `${password}\u0000${saltB64}|${iterations}`;
+    if (keyCache.has(id)) return keyCache.get(id);
+    const base = await crypto.subtle.importKey('raw', te.encode(password), 'PBKDF2', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: fromB64(saltB64), iterations, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    keyCache.set(id, key);
+    return key;
+  }
+  async function decryptBox(box, password) {
+    if (!box || box.v !== 1 || box.kdf !== 'PBKDF2-SHA256') throw new Error('Formato dei dati sconosciuto');
+    const key = await deriveKey(password, box.salt, box.iterations);
+    let plain;
+    try { plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(box.iv) }, key, fromB64(box.ct)); }
+    catch { throw new Error('Password sbagliata'); }
+    return JSON.parse(td.decode(plain));
+  }
+  async function encryptLike(box, password, value) {
+    const key = await deriveKey(password, box.salt, box.iterations);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, te.encode(JSON.stringify(value)));
+    return { v: 1, kdf: 'PBKDF2-SHA256', iterations: box.iterations, salt: box.salt, iv: toB64(iv), ct: toB64(ct) };
+  }
+  async function ntfyTopic(password) {
+    const h = new Uint8Array(await crypto.subtle.digest('SHA-256', te.encode(`ntfy|${password}`)));
+    return `radar-${[...h].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 24)}`;
+  }
+
+  // ——— stato dell'interfaccia ———
+  const STATUS_LABEL = { nuova: 'Nuova', risposto: 'Risposto', vinto: 'Vinto', perso: 'Perso', scartato: 'Scartato' };
+  const CAT_LABEL = { migrazione: 'Migrazione', rifacimento: 'Rifacimento identico', animazioni: 'Animazioni', bug_animazione: 'Bug animazione', performance: 'Performance' };
+  const S = {
+    payload: null,
+    password: null,
+    local: {},
+    filters: { range: store.get('radar.range') ?? '7', q: '', status: 'attive', minScore: 0, source: '', lang: '', cats: new Set() },
+    selected: null,
+    view: 'list',
+  };
+
+  const fmtDate = new Intl.DateTimeFormat('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const fmtDay = new Intl.DateTimeFormat('it-IT', { day: '2-digit', month: 'short' });
+  function ago(iso) {
+    const t = Date.parse(iso);
+    if (!Number.isFinite(t)) return '—';
+    const s = Math.max(0, (Date.now() - t) / 1000);
+    if (s < 60) return 'adesso';
+    if (s < 3600) return `${Math.round(s / 60)} min fa`;
+    if (s < 86400) return `${Math.round(s / 3600)} ore fa`;
+    const d = Math.round(s / 86400);
+    return d === 1 ? 'ieri' : `${d} giorni fa`;
+  }
+  const itemTime = (it) => Date.parse(it.publishedAt || it.firstSeenAt) || Date.parse(it.firstSeenAt) || 0;
+
+  function statusOf(it) {
+    const mine = S.local[it.id];
+    const synced = S.payload.statuses?.[it.id];
+    const pick = !mine ? synced : !synced ? mine : (Date.parse(mine.at) >= Date.parse(synced.at) ? mine : synced);
+    if (pick?.status) return pick.status;
+    return it.status === 'scartato' ? 'scartato' : 'nuova';
+  }
+  function noteOf(it) {
+    const mine = S.local[it.id];
+    const synced = S.payload.statuses?.[it.id];
+    const pick = !mine ? synced : !synced ? mine : (Date.parse(mine.at) >= Date.parse(synced.at) ? mine : synced);
+    return pick?.note ?? '';
+  }
+
+  // ——— filtri ———
+  function inRange(it) {
+    const days = Number(S.filters.range);
+    if (!days) return true;
+    return Date.now() - Date.parse(it.firstSeenAt) <= days * 86400000;
+  }
+  function matches(it) {
+    const f = S.filters;
+    if (!inRange(it)) return false;
+    const st = statusOf(it);
+    if (f.status === 'attive' && !(st === 'nuova' || st === 'risposto')) return false;
+    if (!['attive', 'tutte'].includes(f.status) && st !== f.status) return false;
+    if ((it.classification?.score ?? 0) < f.minScore) return false;
+    if (f.source && it.sourceId !== f.source) return false;
+    if (f.lang && it.lang !== f.lang) return false;
+    if (f.cats.size && !(it.classification?.categories ?? []).some((c) => f.cats.has(c))) return false;
+    if (f.q) {
+      const hay = `${it.title}\n${it.text}`.toLowerCase();
+      if (!f.q.toLowerCase().split(/\s+/).filter(Boolean).every((w) => hay.includes(w))) return false;
+    }
+    return true;
+  }
+  const visibleItems = () => S.payload.items.filter(matches).sort((a, b) => (b.classification?.score ?? 0) - (a.classification?.score ?? 0) || itemTime(b) - itemTime(a));
+
+  // ——— rendering ———
+  function scoreEl(score) {
+    const cls = score >= 70 ? 'score high' : score >= 45 ? 'score mid' : 'score';
+    return el('div', { class: cls, 'aria-label': `Punteggio ${score} su 100` }, String(score));
+  }
+  function statusEl(st) { return el('span', { class: `status s-${st}` }, STATUS_LABEL[st] ?? st); }
+
+  function renderKpis() {
+    const items = S.payload.items;
+    const scoped = items.filter(inRange);
+    const nuove = scoped.filter((it) => statusOf(it) === 'nuova' && (it.classification?.score ?? 0) >= (S.payload.notifyMinScore ?? 45)).length;
+    const last24 = items.filter((it) => Date.now() - Date.parse(it.firstSeenAt) <= 86400000).length;
+    const risposte = scoped.filter((it) => statusOf(it) === 'risposto').length;
+    const vinte = scoped.filter((it) => statusOf(it) === 'vinto').length;
+    const lastRun = S.payload.runs.at(-1);
+    const broken = lastRun ? lastRun.sources.filter((s) => s.error).length : 0;
+    const total = lastRun ? lastRun.sources.length : 0;
+    const k = $('#kpis');
+    k.replaceChildren(
+      el('div', { class: 'tile hero' }, el('div', { class: 'label' }, 'Da valutare'), el('div', { class: 'value' }, String(nuove)), el('div', { class: 'sub' }, `nuove sopra ${S.payload.notifyMinScore ?? 45} punti, nel periodo`)),
+      el('div', { class: 'tile' }, el('div', { class: 'label' }, 'Ultime 24 ore'), el('div', { class: 'value' }, String(last24)), el('div', { class: 'sub' }, 'richieste pertinenti')),
+      el('div', { class: 'tile' }, el('div', { class: 'label' }, 'Risposte'), el('div', { class: 'value' }, String(risposte)), el('div', { class: 'sub' }, 'nel periodo')),
+      el('div', { class: 'tile' }, el('div', { class: 'label' }, 'Vinte'), el('div', { class: 'value' }, String(vinte)), el('div', { class: 'sub' }, 'nel periodo')),
+      el('div', { class: 'tile' }, el('div', { class: 'label' }, 'Fonti'), el('div', { class: 'value' }, total ? `${total - broken}/${total}` : '—'), el('div', { class: 'sub' }, broken ? `${broken} in errore all'ultimo giro` : 'tutte lette all\'ultimo giro')),
+    );
+  }
+
+  function renderList() {
+    const items = visibleItems();
+    $('#list-count').textContent = `${items.length} ${items.length === 1 ? 'richiesta' : 'richieste'}`;
+    const list = $('#list');
+    if (!items.length) {
+      list.replaceChildren(el('li', { class: 'empty' }, S.payload.items.length ? 'Nessuna richiesta con questi filtri.' : 'Ancora nessuna richiesta pertinente: il radar le aggiunge a ogni giro.'));
+      return;
+    }
+    list.replaceChildren(...items.map((it) => {
+      const c = it.classification ?? {};
+      const m = it.measurement;
+      const st = statusOf(it);
+      const tags = [
+        ...(c.categories ?? []).map((cat) => el('span', { class: 'tag' }, CAT_LABEL[cat] ?? cat)),
+        m && !m.error ? el('span', { class: 'tag' }, `${m.platform ?? 'stack ?'} · fascia ${m.tier}`) : null,
+        c.redFlag ? el('span', { class: 'tag flag' }, c.redFlag.kind === 'clone_terzi' ? 'Copia di terzi' : 'Titolarità da verificare') : null,
+      ];
+      const btn = el('button', { class: 'row', type: 'button', 'aria-current': S.selected === it.id ? 'true' : 'false', onclick: () => { location.hash = `#/r/${it.id}`; } },
+        scoreEl(c.score ?? 0),
+        el('div', {},
+          el('div', { class: 'row-title' }, it.title),
+          el('div', { class: 'meta' }, [it.sourceLabel ?? it.source, ago(it.publishedAt || it.firstSeenAt), it.budget?.raw, it.lang?.toUpperCase()].filter(Boolean).join(' · '), ' · ', statusEl(st)),
+          el('div', { class: 'tags' }, tags),
+        ),
+      );
+      return el('li', {}, btn);
+    }));
+  }
+
+  function linkBtn(url, label, cls = 'btn') {
+    const safe = safeUrl(url);
+    return safe ? el('a', { class: cls, href: safe, target: '_blank', rel: 'noopener noreferrer' }, label) : null;
+  }
+
+  function renderDetail() {
+    const box = $('#detail');
+    const it = S.payload.items.find((x) => x.id === S.selected);
+    if (!it) {
+      box.replaceChildren(el('div', { class: 'empty' }, 'Seleziona una richiesta per vedere testo, misura del sito e bozza di risposta.'));
+      box.classList.remove('open');
+      if (window.matchMedia('(max-width: 980px)').matches) box.hidden = true;
+      return;
+    }
+    box.hidden = false;
+    const c = it.classification ?? {};
+    const m = it.measurement;
+    const st = statusOf(it);
+    const note = el('textarea', { class: 'input note', id: 'note', placeholder: 'Note per te (prezzo proposto, quando hai risposto, contatto…)' });
+    note.value = noteOf(it);
+    note.addEventListener('change', () => setStatus(it, statusOf(it), note.value));
+
+    const statusButtons = el('div', { class: 'status-buttons', role: 'group', 'aria-label': 'Stato' },
+      Object.entries(STATUS_LABEL).map(([key, label]) => el('button', { class: 'btn small', type: 'button', 'aria-pressed': st === key ? 'true' : 'false', onclick: () => setStatus(it, key, note.value) }, label)));
+
+    const measure = m
+      ? (m.error
+        ? el('p', { class: 'meta' }, `Sito non misurato: ${m.error}`)
+        : el('dl', { class: 'kv' },
+          el('dt', {}, 'Sito'), el('dd', {}, linkBtn(m.url, m.url, '') ?? m.url),
+          el('dt', {}, 'Piattaforma'), el('dd', {}, m.platform ?? 'non riconosciuta'),
+          el('dt', {}, 'Framework'), el('dd', {}, m.frameworks?.length ? m.frameworks.join(', ') : '—'),
+          el('dt', {}, 'Movimento'), el('dd', {}, m.motion?.length ? m.motion.join(', ') : 'nessuna libreria visibile'),
+          el('dt', {}, 'Fascia'), el('dd', {}, `${m.tier} — ${m.tierWhy}`)))
+      : el('p', { class: 'meta' }, it.siteUrls?.length ? 'Sito presente ma non misurato (punteggio sotto la soglia di misura).' : 'Nessun URL del sito nell\'annuncio.');
+
+    const drafts = [it.draftLlm ? { label: 'Rifinita', text: it.draftLlm } : null, it.draft ? { label: 'Dal modello', text: it.draft } : null].filter(Boolean);
+    const draftPre = el('div', { class: 'draft', id: 'draft-text' }, drafts[0]?.text ?? '—');
+    const draftSwitch = drafts.length > 1
+      ? el('div', { class: 'seg', role: 'group', 'aria-label': 'Versione della bozza' }, drafts.map((d, i) => el('button', { type: 'button', 'aria-pressed': i === 0 ? 'true' : 'false', onclick: (e) => { draftPre.textContent = d.text; $$('button', e.currentTarget.parentNode).forEach((b) => b.setAttribute('aria-pressed', b === e.currentTarget ? 'true' : 'false')); } }, d.label)))
+      : null;
+    const copyBtn = el('button', { class: 'btn small', type: 'button', onclick: async (e) => {
+      try { await navigator.clipboard.writeText(draftPre.textContent); e.currentTarget.textContent = 'Copiata'; } catch { e.currentTarget.textContent = 'Copia non riuscita: seleziona il testo'; }
+    } }, 'Copia la bozza');
+
+    box.replaceChildren(el('div', { class: 'detail-inner' },
+      el('button', { class: 'btn small close-detail', type: 'button', onclick: () => { location.hash = '#/'; } }, '← Elenco'),
+      el('h2', {}, it.title),
+      el('div', { class: 'meta' }, [it.sourceLabel ?? it.source, `pubblicata ${it.publishedAt ? fmtDate.format(new Date(it.publishedAt)) : '—'}`, `vista ${fmtDate.format(new Date(it.firstSeenAt))}`, it.budget ? `budget ${it.budget.raw}` : null].filter(Boolean).join(' · ')),
+      el('div', { class: 'actions' }, linkBtn(it.url, 'Apri annuncio ↗', 'btn primary'), scoreEl(c.score ?? 0)),
+      c.redFlag ? el('p', { class: 'error' }, c.redFlag.reason) : null,
+      el('h3', {}, 'Stato'), statusButtons, el('div', { style: 'height:8px' }), note,
+      el('h3', {}, 'Perché questo punteggio'), el('ul', { class: 'reasons' }, (c.reasons ?? []).map((r) => el('li', {}, r))),
+      el('h3', {}, 'Sito del cliente'), measure,
+      el('h3', {}, 'Bozza di risposta'), draftSwitch, el('div', { style: 'height:8px' }), draftPre, el('div', { class: 'actions' }, copyBtn, el('span', { class: 'meta' }, 'La rileggi e la invii tu, dalla piattaforma.')),
+      el('h3', {}, 'Testo dell\'annuncio'), el('div', { class: 'post' }, it.text || '—'),
+    ));
+    box.scrollTop = 0;
+  }
+
+  // ——— grafici: una serie, barre sottili con estremi arrotondati, tooltip su hover e focus, vista tabella ———
+  const tip = $('#tooltip');
+  function showTip(evt, value, label) {
+    tip.replaceChildren(el('strong', {}, value), el('span', {}, label));
+    tip.hidden = false;
+    const r = evt.target.getBoundingClientRect?.() ?? { left: evt.clientX, top: evt.clientY, width: 0 };
+    const x = (evt.clientX ?? r.left + r.width / 2) + 12;
+    const y = (evt.clientY ?? r.top) - 10;
+    tip.style.left = `${Math.min(x, window.innerWidth - tip.offsetWidth - 8)}px`;
+    tip.style.top = `${Math.max(8, y - tip.offsetHeight)}px`;
+  }
+  const hideTip = () => { tip.hidden = true; };
+  function roundedBarPath(x, y, w, h, r) {
+    const rr = Math.min(r, w / 2, h);
+    if (h <= 0) return '';
+    return `M${x},${y + h}V${y + rr}Q${x},${y} ${x + rr},${y}H${x + w - rr}Q${x + w},${y} ${x + w},${y + rr}V${y + h}Z`;
+  }
+  function roundedHBarPath(x, y, w, h, r) {
+    const rr = Math.min(r, h / 2, w);
+    if (w <= 0) return '';
+    return `M${x},${y}H${x + w - rr}Q${x + w},${y} ${x + w},${y + rr}V${y + h - rr}Q${x + w},${y + h} ${x + w - rr},${y + h}H${x}Z`;
+  }
+  const chartWidth = (target) => Math.max(300, Math.round((target.clientWidth || 676) - 36));
+  function tableOf(head, rows) {
+    return el('table', { class: 'data' }, el('thead', {}, el('tr', {}, head.map((h, i) => el('th', { class: i ? 'num' : '' }, h)))), el('tbody', {}, rows.map((r) => el('tr', {}, r.map((v, i) => el('td', { class: i ? 'num' : '' }, String(v)))))));
+  }
+  function chartCard(target, title, sub, svg, table) {
+    const tbl = el('div', { hidden: true }, table);
+    const toggle = el('button', { class: 'btn small table-toggle', type: 'button', onclick: (e) => { tbl.hidden = !tbl.hidden; e.currentTarget.textContent = tbl.hidden ? 'Mostra la tabella' : 'Nascondi la tabella'; } }, 'Mostra la tabella');
+    target.replaceChildren(el('h2', {}, title), el('div', { class: 'sub' }, sub), svg, toggle, tbl);
+  }
+
+  function renderDaysChart(items) {
+    const days = Number(S.filters.range) || 30;
+    const n = Math.max(7, Math.min(days, 60));
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const buckets = Array.from({ length: n }, (_, i) => ({ day: new Date(today.getTime() - (n - 1 - i) * 86400000), count: 0 }));
+    for (const it of items) {
+      const d = new Date(it.firstSeenAt); d.setHours(0, 0, 0, 0);
+      const idx = Math.round((d - buckets[0].day) / 86400000);
+      if (idx >= 0 && idx < n) buckets[idx].count += 1;
+    }
+    const W = chartWidth($('#chart-days')), H = 220, L = 32, R = 8, T = 10, B = 26;
+    const max = Math.max(1, ...buckets.map((b) => b.count));
+    const step = max <= 5 ? 1 : Math.ceil(max / 4);
+    const top = Math.ceil(max / step) * step;
+    const y = (v) => T + (H - T - B) * (1 - v / top);
+    const slot = (W - L - R) / n;
+    const bw = Math.max(2, Math.min(18, slot - 2));
+    const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Richieste pertinenti al giorno' });
+    for (let v = 0; v <= top; v += step) {
+      svg.append(sv('line', { class: v ? 'grid' : 'baseline', x1: L, x2: W - R, y1: y(v), y2: y(v) }), sv('text', { class: 'axis', x: L - 6, y: y(v) + 4, 'text-anchor': 'end' }, String(v)));
+    }
+    buckets.forEach((b, i) => {
+      const x = L + i * slot + (slot - bw) / 2;
+      const label = fmtDay.format(b.day);
+      const hit = sv('rect', { class: 'hit', x: L + i * slot, y: T, width: slot, height: H - T - B, tabindex: 0, 'aria-label': `${label}: ${b.count}` });
+      const bar = sv('path', { class: 'bar', d: roundedBarPath(x, y(b.count), bw, y(0) - y(b.count), 4) });
+      const show = (e) => { bar.classList.add('lift'); showTip(e, String(b.count), label); };
+      const hide = () => { bar.classList.remove('lift'); hideTip(); };
+      hit.addEventListener('pointermove', show); hit.addEventListener('focus', show);
+      hit.addEventListener('pointerleave', hide); hit.addEventListener('blur', hide);
+      svg.append(bar, hit);
+      if (i === 0 || i === n - 1 || i % Math.ceil(n / 6) === 0) svg.append(sv('text', { class: 'axis', x: L + i * slot + slot / 2, y: H - 8, 'text-anchor': 'middle' }, label));
+    });
+    chartCard($('#chart-days'), 'Richieste pertinenti al giorno', `Ultimi ${n} giorni, con i filtri attivi`, svg, tableOf(['Giorno', 'Richieste'], buckets.map((b) => [fmtDay.format(b.day), b.count])));
+  }
+
+  function renderHBars(target, title, sub, rows) {
+    const W = chartWidth(target), rowH = 26, L = Math.min(170, Math.round(W * 0.36)), R = 40, T = 4;
+    const H = T + rows.length * rowH + 6;
+    const max = Math.max(1, ...rows.map((r) => r.value));
+    const x = (v) => (W - L - R) * (v / max);
+    const svg = sv('svg', { viewBox: `0 0 ${W} ${Math.max(H, 40)}`, role: 'img', 'aria-label': title });
+    rows.forEach((r, i) => {
+      const yy = T + i * rowH;
+      const maxChars = Math.max(10, Math.floor((L - 12) / 6.4));
+      const label = r.label.length > maxChars ? `${r.label.slice(0, maxChars - 1)}…` : r.label;
+      const hit = sv('rect', { class: 'hit', x: 0, y: yy, width: W, height: rowH, tabindex: 0, 'aria-label': `${r.label}: ${r.value}` });
+      const bar = sv('path', { class: 'bar', d: roundedHBarPath(L, yy + 6, Math.max(r.value ? 2 : 0, x(r.value)), rowH - 12, 4) });
+      const show = (e) => { bar.classList.add('lift'); showTip(e, String(r.value), r.label); };
+      const hide = () => { bar.classList.remove('lift'); hideTip(); };
+      hit.addEventListener('pointermove', show); hit.addEventListener('focus', show);
+      hit.addEventListener('pointerleave', hide); hit.addEventListener('blur', hide);
+      svg.append(
+        sv('text', { class: 'axis', x: L - 8, y: yy + rowH / 2 + 4, 'text-anchor': 'end' }, label),
+        bar,
+        sv('text', { class: 'val', x: L + x(r.value) + 6, y: yy + rowH / 2 + 4 }, String(r.value)),
+        hit,
+      );
+    });
+    if (!rows.length) svg.append(sv('text', { class: 'axis', x: 8, y: 24 }, 'Nessun dato nel periodo'));
+    chartCard(target, title, sub, svg, tableOf(['Voce', 'Richieste'], rows.map((r) => [r.label, r.value])));
+  }
+
+  function renderStats() {
+    const items = S.payload.items.filter(matches);
+    renderDaysChart(items);
+    const bySource = new Map();
+    for (const it of items) bySource.set(it.sourceLabel ?? it.source, (bySource.get(it.sourceLabel ?? it.source) ?? 0) + 1);
+    renderHBars($('#chart-sources'), 'Da quali fonti arrivano', 'Richieste pertinenti per fonte, con i filtri attivi', [...bySource].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 15));
+    const byCat = new Map();
+    for (const it of items) for (const cat of it.classification?.categories ?? []) byCat.set(cat, (byCat.get(cat) ?? 0) + 1);
+    renderHBars($('#chart-cats'), 'Che lavori chiedono', 'Una richiesta può avere più categorie', [...byCat].map(([cat, value]) => ({ label: CAT_LABEL[cat] ?? cat, value })).sort((a, b) => b.value - a.value));
+  }
+
+  function healthBadge(kind, text) {
+    const paths = {
+      ok: sv('path', { d: 'M3 8.5l3 3 7-7', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }),
+      err: sv('path', { d: 'M4 4l8 8M12 4l-8 8', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round' }),
+      idle: sv('path', { d: 'M8 3v6M8 12.5v.5', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round' }),
+    };
+    return el('span', { class: `health ${kind}` }, sv('svg', { width: 16, height: 16, viewBox: '0 0 16 16', 'aria-hidden': 'true' }, paths[kind]), text);
+  }
+
+  function renderSources() {
+    const runs = S.payload.runs;
+    const last = runs.at(-1);
+    const card = $('#sources-card');
+    if (!last) { card.replaceChildren(el('h2', {}, 'Fonti'), el('p', { class: 'meta' }, 'Il radar non ha ancora fatto un giro.')); return; }
+    const since = Date.now() - 30 * 86400000;
+    const relevant30 = new Map();
+    for (const it of S.payload.items) if (Date.parse(it.firstSeenAt) >= since) relevant30.set(it.sourceId, (relevant30.get(it.sourceId) ?? 0) + 1);
+    const okRuns = new Map();
+    const recent = runs.slice(-48);
+    for (const r of recent) for (const s of r.sources) okRuns.set(s.id, (okRuns.get(s.id) ?? 0) + (s.error ? 0 : 1));
+    const rows = last.sources.map((s) => el('tr', {},
+      el('td', {}, s.label),
+      el('td', {}, s.error ? healthBadge('err', 'Errore') : s.count ? healthBadge('ok', 'Letta') : healthBadge('idle', 'Vuota')),
+      el('td', { class: 'num' }, String(s.count ?? 0)),
+      el('td', { class: 'num' }, String(relevant30.get(s.id) ?? 0)),
+      el('td', { class: 'num' }, `${okRuns.get(s.id) ?? 0}/${recent.length}`),
+      el('td', {}, s.error ?? ''),
+    ));
+    const lastOk = runs.filter((r) => !r.fatal).at(-1);
+    card.replaceChildren(
+      el('h2', {}, 'Salute delle fonti'),
+      el('div', { class: 'sub' }, `Ultimo giro ${fmtDate.format(new Date(last.at))} (${Math.round((last.durationMs ?? 0) / 1000)} s) · ${last.fresh ?? 0} nuove lette, ${last.relevant ?? 0} pertinenti, ${last.notified ?? 0} avvisi${lastOk && lastOk !== last ? ` · ultimo giro riuscito ${ago(lastOk.at)}` : ''}`),
+      el('table', { class: 'data' },
+        el('thead', {}, el('tr', {}, ['Fonte', 'Ultimo giro', 'Elementi letti', 'Pertinenti 30 gg', 'Giri riusciti', 'Errore'].map((h, i) => el('th', { class: i >= 2 && i <= 4 ? 'num' : '' }, h)))),
+        el('tbody', {}, rows)),
+      el('p', { class: 'meta' }, `Fonti configurate ma non attive (mancano credenziali o sono spente): ${(S.payload.inactiveSources ?? []).join(', ') || 'nessuna'}.`),
+    );
+  }
+
+  function renderHeader() {
+    const p = S.payload;
+    const next = p.cadenceMinutes ? ` · prossimo giro entro ~${p.cadenceMinutes} min` : '';
+    $('#updated').textContent = `aggiornato ${ago(p.generatedAt)}${next}`;
+    $('#updated').title = fmtDate.format(new Date(p.generatedAt));
+  }
+
+  function renderFilters() {
+    $$('#f-range button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.range === S.filters.range ? 'true' : 'false'));
+    const sel = $('#f-source');
+    const current = sel.value;
+    const sources = new Map();
+    for (const it of S.payload.items) sources.set(it.sourceId, it.sourceLabel ?? it.source);
+    sel.replaceChildren(el('option', { value: '' }, 'Tutte le fonti'), ...[...sources].sort((a, b) => a[1].localeCompare(b[1])).map(([id, label]) => el('option', { value: id }, label)));
+    sel.value = sources.has(current) ? current : '';
+    $('#f-cats').replaceChildren(...Object.entries(CAT_LABEL).map(([key, label]) => el('button', { class: 'chip', type: 'button', 'aria-pressed': S.filters.cats.has(key) ? 'true' : 'false', onclick: () => { if (S.filters.cats.has(key)) S.filters.cats.delete(key); else S.filters.cats.add(key); render(); } }, label)));
+  }
+
+  function render() {
+    renderHeader();
+    renderFilters();
+    renderKpis();
+    $('#view-list').hidden = S.view !== 'list';
+    $('#view-stats').hidden = S.view !== 'stats';
+    $('#view-sources').hidden = S.view !== 'sources';
+    $$('nav.tabs a').forEach((a) => a.setAttribute('aria-current', a.dataset.view === S.view ? 'page' : 'false'));
+    if (S.view === 'list') { renderList(); renderDetail(); }
+    if (S.view === 'stats') renderStats();
+    if (S.view === 'sources') renderSources();
+  }
+
+  function route() {
+    const h = location.hash;
+    const m = h.match(/^#\/r\/([0-9a-f]{6,64})$/i);
+    if (m) { S.view = 'list'; S.selected = m[1]; }
+    else if (h === '#/statistiche') S.view = 'stats';
+    else if (h === '#/fonti') S.view = 'sources';
+    else { S.view = 'list'; S.selected = null; }
+    render();
+  }
+
+  // ——— stati: locali, e sincronizzati via GitHub se c'è un token ———
+  const SYNC = { branch: 'stati', path: 'stati.enc.json' };
+  function loadLocal() { try { S.local = JSON.parse(store.get('radar.statuses.v1') || '{}'); } catch { S.local = {}; } }
+  function saveLocal() { store.set('radar.statuses.v1', JSON.stringify(S.local)); }
+  function setSync(text) { $('#sync-state').textContent = text; }
+
+  async function setStatus(it, status, note) {
+    S.local[it.id] = { status, note: note || undefined, at: new Date().toISOString() };
+    saveLocal();
+    render();
+    const token = store.get('radar.ghtoken');
+    if (token && S.payload.repo) pushStatuses(token).catch((e) => setSync(`Sincronizzazione non riuscita: ${e.message}`));
+  }
+
+  async function gh(token, path, init = {}) {
+    const res = await fetch(`https://api.github.com/repos/${S.payload.repo}${path}`, {
+      ...init,
+      headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28', ...(init.body ? { 'content-type': 'application/json' } : {}) },
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`GitHub ${res.status}`);
+    return res.json();
+  }
+  async function pullStatuses(token) {
+    const file = await gh(token, `/contents/${SYNC.path}?ref=${SYNC.branch}`);
+    if (!file) return null;
+    const box = JSON.parse(atob(file.content.replace(/\n/g, '')));
+    const data = await decryptBox(box, S.password);
+    return { sha: file.sha, box, statuses: data.statuses ?? {} };
+  }
+  function mergeStatuses(a, b) {
+    const out = { ...a };
+    for (const [id, v] of Object.entries(b)) if (!out[id] || Date.parse(v.at) > Date.parse(out[id].at)) out[id] = v;
+    return out;
+  }
+  async function pushStatuses(token, attempt = 0) {
+    setSync('Sincronizzo…');
+    const remote = await pullStatuses(token);
+    if (!remote) throw new Error(`manca il branch «${SYNC.branch}»: lo crea il radar al primo giro`);
+    const merged = mergeStatuses(remote.statuses, S.local);
+    const box = await encryptLike(remote.box, S.password, { version: 1, statuses: merged });
+    try {
+      await gh(token, `/contents/${SYNC.path}`, { method: 'PUT', body: JSON.stringify({ message: 'stati: aggiornamento dalla dashboard', content: btoa(JSON.stringify(box)), sha: remote.sha, branch: SYNC.branch }) });
+    } catch (e) {
+      if (attempt < 1 && /409|422/.test(e.message)) return pushStatuses(token, attempt + 1);
+      throw e;
+    }
+    S.payload.statuses = merged;
+    setSync(`Sincronizzato ${fmtDate.format(new Date())}`);
+  }
+
+  // ——— notifiche: il topic ntfy si ricava dalla password ———
+  async function openNotify() {
+    const topic = await ntfyTopic(S.password);
+    const channels = S.payload.channels ?? [];
+    const web = `https://ntfy.sh/${topic}`;
+    $('#notify-body').replaceChildren(
+      el('p', {}, channels.length ? `Canali attivi sul radar: ${channels.join(', ')}.` : 'Nessun canale attivo sul radar.'),
+      el('h3', {}, 'ntfy (consigliato, nessun account)'),
+      el('ol', {},
+        el('li', {}, 'Installa l\'app ntfy (Android o iPhone), oppure usa la versione web.'),
+        el('li', {}, 'Aggiungi un\'iscrizione al topic qui sotto, server ntfy.sh.'),
+        el('li', {}, 'Fatto: ogni richiesta sopra soglia arriva come notifica, con i pulsanti per aprire l\'annuncio e la dashboard.')),
+      el('p', {}, 'Topic: ', el('span', { class: 'mono' }, topic), ' ', el('button', { class: 'btn small', type: 'button', onclick: async (e) => { try { await navigator.clipboard.writeText(topic); e.currentTarget.textContent = 'Copiato'; } catch { /* niente appunti */ } } }, 'Copia')),
+      el('p', {}, linkBtn(web, 'Apri il topic nel browser ↗', 'btn')),
+      el('p', { class: 'meta' }, 'Il topic è derivato dalla tua password: chi non la conosce non può indovinarlo. Se cambi password, cambia anche il topic.'),
+      el('h3', {}, 'Altri canali'),
+      el('p', {}, 'Telegram, Discord, Slack o email si attivano aggiungendo i segreti del repository descritti nel README.'),
+    );
+    $('#dlg-notify').showModal();
+  }
+
+  // ——— avvio ———
+  async function unlock(password, remember) {
+    const res = await fetch('data.enc.json', { cache: 'no-store' });
+    if (!res.ok) throw new Error(res.status === 404 ? 'Dati non ancora pubblicati: aspetta il primo giro del radar' : `Errore nel caricare i dati (${res.status})`);
+    const payload = await decryptBox(await res.json(), password);
+    S.payload = { items: [], runs: [], statuses: {}, ...payload };
+    S.password = password;
+    store.sset('radar.pw', password);
+    if (remember) store.set('radar.pw', password);
+    loadLocal();
+    $('#lock').hidden = true;
+    $('#app').hidden = false;
+    route();
+    const token = store.get('radar.ghtoken');
+    if (token && S.payload.repo) pullStatuses(token).then((r) => { if (r) { S.payload.statuses = mergeStatuses(S.payload.statuses, r.statuses); render(); } }).catch(() => {});
+  }
+
+  $('#lock-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = $('#unlock-btn');
+    btn.disabled = true; btn.textContent = 'Sblocco…';
+    $('#lock-error').textContent = '';
+    try { await unlock($('#pw').value, $('#remember').checked); }
+    catch (err) { $('#lock-error').textContent = err.message; }
+    finally { btn.disabled = false; btn.textContent = 'Sblocca'; }
+  });
+
+  $$('#f-range button').forEach((b) => b.addEventListener('click', () => { S.filters.range = b.dataset.range; store.set('radar.range', S.filters.range); render(); }));
+  $('#f-q').addEventListener('input', (e) => { S.filters.q = e.target.value.trim(); render(); });
+  $('#f-status').addEventListener('change', (e) => { S.filters.status = e.target.value; render(); });
+  $('#f-score').addEventListener('change', (e) => { S.filters.minScore = Number(e.target.value); render(); });
+  $('#f-source').addEventListener('change', (e) => { S.filters.source = e.target.value; render(); });
+  $('#f-lang').addEventListener('change', (e) => { S.filters.lang = e.target.value; render(); });
+  window.addEventListener('hashchange', route);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA' && !$('#app').hidden) { e.preventDefault(); $('#f-q').focus(); }
+    if (e.key === 'Escape' && S.selected && !document.querySelector('dialog[open]')) location.hash = '#/';
+  });
+  $$('dialog [data-close]').forEach((b) => b.addEventListener('click', () => b.closest('dialog').close()));
+  $('#btn-notify').addEventListener('click', openNotify);
+  $('#btn-settings').addEventListener('click', () => { $('#gh-token').value = store.get('radar.ghtoken') ?? ''; setSync(store.get('radar.ghtoken') ? 'Token salvato su questo dispositivo.' : 'Nessun token: gli stati restano su questo dispositivo.'); $('#dlg-settings').showModal(); });
+  $('#btn-save-token').addEventListener('click', async () => {
+    const t = $('#gh-token').value.trim();
+    if (!t) { store.del('radar.ghtoken'); setSync('Token rimosso.'); return; }
+    store.set('radar.ghtoken', t);
+    try { await pushStatuses(t); } catch (e) { setSync(`Token salvato, ma la sincronizzazione non è riuscita: ${e.message}`); }
+  });
+  $('#btn-forget').addEventListener('click', () => { store.del('radar.pw'); store.del('radar.ghtoken'); try { sessionStorage.clear(); } catch { /* niente */ } location.reload(); });
+  $('#btn-lock').addEventListener('click', () => { try { sessionStorage.removeItem('radar.pw'); } catch { /* niente */ } location.reload(); });
+  $('#btn-theme').addEventListener('click', () => {
+    const cur = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    store.set('radar.theme', next);
+  });
+  const savedTheme = store.get('radar.theme');
+  if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+
+  const saved = store.sget('radar.pw') || store.get('radar.pw');
+  if (saved) unlock(saved, false).catch(() => { $('#lock').hidden = false; });
+  setInterval(() => { if (S.payload) renderHeader(); }, 60000);
+  let resizeTimer = null;
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (S.payload && S.view === 'stats') renderStats(); }, 150); });
+})();
+</script>
+</body>
+</html>

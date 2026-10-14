@@ -13,12 +13,15 @@
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "scansiona": "node bin/radar.mjs scansiona",
-    "elenco": "node bin/radar.mjs elenco"
+    "elenco": "node bin/radar.mjs elenco",
+    "dashboard": "node bin/radar.mjs dashboard --da-github",
+    "prova-fonti": "node bin/radar.mjs prova-fonti"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.133.0",
     "fast-xml-parser": "5.11.2",
     "imapflow": "2.4.2",
-    "mailparser": "3.9.39"
+    "mailparser": "3.9.39",
+    "nodemailer": "6.10.1"
   }
 }

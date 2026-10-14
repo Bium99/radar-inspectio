@@ -1,0 +1,145 @@
+name: radar
+
+on:
+  schedule:
+    # ogni 30 minuti dalle 8 alle 24 ora italiana (6–21 UTC), ogni ora di notte
+    - cron: '4,34 6-21 * * *'
+    - cron: '14 0-5,22,23 * * *'
+  workflow_dispatch:
+    inputs:
+      prova:
+        description: 'Solo prova delle fonti: nessuno stato salvato, nessuna notifica'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: radar
+  cancel-in-progress: false
+
+jobs:
+  giro:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    outputs:
+      pages: ${{ steps.pagine.outputs.pages }}
+    env:
+      RADAR_PASSWORD: ${{ secrets.RADAR_PASSWORD }}
+      NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+      NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+      NTFY_SERVER: ${{ secrets.NTFY_SERVER }}
+      NTFY_OFF: ${{ secrets.NTFY_OFF }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      SMTP_URL: ${{ secrets.SMTP_URL }}
+      EMAIL_TO: ${{ secrets.EMAIL_TO }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      IMAP_HOST: ${{ secrets.IMAP_HOST }}
+      IMAP_PORT: ${{ secrets.IMAP_PORT }}
+      IMAP_USER: ${{ secrets.IMAP_USER }}
+      IMAP_PASS: ${{ secrets.IMAP_PASS }}
+      IMAP_MAILBOX: ${{ secrets.IMAP_MAILBOX }}
+      BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
+    steps:
+      - name: Controlla la configurazione
+        id: pronto
+        run: |
+          if [ "${{ inputs.prova }}" = "true" ]; then echo "modo=prova" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ -z "$RADAR_PASSWORD" ]; then
+            echo "::notice::Radar in attesa: aggiungi il segreto RADAR_PASSWORD (Settings → Secrets and variables → Actions). Fino ad allora ogni giro si ferma qui."
+            echo "modo=attesa" >> "$GITHUB_OUTPUT"
+          else
+            echo "modo=giro" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.pronto.outputs.modo != 'attesa'
+
+      - uses: actions/setup-node@v4
+        if: steps.pronto.outputs.modo != 'attesa'
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+        if: steps.pronto.outputs.modo != 'attesa'
+
+      - name: Prova delle fonti
+        if: steps.pronto.outputs.modo == 'prova'
+        env:
+          RADAR_PASSWORD: ''
+          NTFY_OFF: '1'
+        run: node bin/radar.mjs prova-fonti --quante 40
+
+      - name: Recupera lo stato
+        if: steps.pronto.outputs.modo == 'giro'
+        id: stato
+        run: |
+          mkdir -p .radar
+          if git fetch --quiet --depth=1 origin +refs/heads/data:refs/remotes/origin/data 2>/dev/null; then
+            git show origin/data:state.enc.json > .radar/state.enc.json
+          fi
+          if git fetch --quiet --depth=1 origin +refs/heads/stati:refs/remotes/origin/stati 2>/dev/null; then
+            git show origin/stati:stati.enc.json > .radar/stati.enc.json
+            echo "stati=1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Giro del radar
+        if: steps.pronto.outputs.modo == 'giro'
+        run: node bin/radar.mjs ciclo --stato .radar/state.enc.json --stati .radar/stati.enc.json --sito _site
+
+      - name: Salva lo stato (cifrato, un solo commit sul branch data)
+        if: steps.pronto.outputs.modo == 'giro'
+        run: |
+          git config user.name "radar"
+          git config user.email "radar@users.noreply.github.com"
+          blob=$(git hash-object -w .radar/state.enc.json)
+          tree=$(printf "100644 blob %s\tstate.enc.json\n" "$blob" | git mktree)
+          commit=$(git commit-tree "$tree" -m "stato del radar")
+          git push --quiet --force origin "$commit:refs/heads/data"
+          if [ -z "${{ steps.stato.outputs.stati }}" ]; then
+            node bin/radar.mjs ciclo --stati-init .radar/stati.enc.json
+            blob=$(git hash-object -w .radar/stati.enc.json)
+            tree=$(printf "100644 blob %s\tstati.enc.json\n" "$blob" | git mktree)
+            commit=$(git commit-tree "$tree" -m "stati della dashboard")
+            git push --quiet origin "$commit:refs/heads/stati" || echo "branch stati già creato"
+          fi
+
+      - name: GitHub Pages è attivo?
+        if: steps.pronto.outputs.modo == 'giro'
+        id: pagine
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          kind=$(gh api "repos/${{ github.repository }}/pages" --jq .build_type 2>/dev/null || true)
+          if [ "$kind" = "workflow" ]; then
+            echo "pages=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pages=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Dashboard non pubblicata: attiva GitHub Pages (Settings → Pages → Source: GitHub Actions), oppure aprila in locale con 'npm run dashboard'."
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.pagine.outputs.pages == 'true'
+        with:
+          path: _site
+
+  pagine:
+    needs: giro
+    if: needs.giro.outputs.pages == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
