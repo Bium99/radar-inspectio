@@ -730,13 +730,14 @@ dialog p, dialog li { color: var(--text-secondary); }
     for (const it of S.payload.items) if (Date.parse(it.firstSeenAt) >= since) relevant30.set(it.sourceId, (relevant30.get(it.sourceId) ?? 0) + 1);
     const okRuns = new Map();
     const recent = runs.slice(-48);
-    for (const r of recent) for (const s of r.sources) okRuns.set(s.id, (okRuns.get(s.id) ?? 0) + (s.error ? 0 : 1));
+    const tried = new Map();
+    for (const r of recent) for (const s of r.sources) { if (s.skipped) continue; tried.set(s.id, (tried.get(s.id) ?? 0) + 1); okRuns.set(s.id, (okRuns.get(s.id) ?? 0) + (s.error ? 0 : 1)); }
     const rows = last.sources.map((s) => el('tr', {},
       el('td', {}, s.label),
-      el('td', {}, s.error ? healthBadge('err', 'Errore') : s.count ? healthBadge('ok', 'Letta') : healthBadge('idle', 'Vuota')),
+      el('td', {}, s.error ? healthBadge('err', 'Errore') : s.skipped ? healthBadge('idle', 'In pausa') : s.count ? healthBadge('ok', 'Letta') : healthBadge('idle', 'Vuota')),
       el('td', { class: 'num' }, String(s.count ?? 0)),
       el('td', { class: 'num' }, String(relevant30.get(s.id) ?? 0)),
-      el('td', { class: 'num' }, `${okRuns.get(s.id) ?? 0}/${recent.length}`),
+      el('td', { class: 'num' }, `${okRuns.get(s.id) ?? 0}/${tried.get(s.id) ?? 0}`),
       el('td', {}, s.error ?? ''),
     ));
     const lastOk = runs.filter((r) => !r.fatal).at(-1);

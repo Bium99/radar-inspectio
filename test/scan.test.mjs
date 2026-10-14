@@ -130,7 +130,7 @@ test('scan: al primo giro un solo riepilogo; annunci vecchi non suonano', async 
   const sent = [];
   const fetchImpl = async (url, init) => { if (url.startsWith('https://ntfy.sh')) { sent.push(JSON.parse(init.body)); return new Response('{}'); } return siteFetch(feeds)(url); };
   const store = emptyStore();
-  const s = await runScan({ config, env: { NTFY_TOPIC: 't' }, store, specs: SPECS.slice(0, 1), fetchImpl, now, dashboardUrl: 'https://u.github.io/r/' });
+  const s = await runScan({ config, env: { NTFY_TOPIC: 't' }, store, specs: [{ ...SPECS[0], demand: true }], fetchImpl, now, dashboardUrl: 'https://u.github.io/r/' });
   assert.equal(s.firstRun, true);
   assert.equal(sent.length, 1);
   assert.match(sent[0].title, /Radar attivo: 2 richieste da valutare/);
@@ -173,4 +173,35 @@ test('cycle: URL di Pages, stato e dashboard cifrati, stati sincronizzati letti'
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('cadenza per fonte: una fonte «ogni 6 ore» salta i giri intermedi e lo dichiara', async () => {
+  const feeds = { 'https://a.com/feed': rss([['Looking for a GSAP developer', 'https://p.com/x', 'paid']]) };
+  const store = emptyStore();
+  const spec = { id: 'slow', label: 'Lenta', type: 'rss', url: 'https://a.com/feed', everyMinutes: 360 };
+  store.runs.push({ at: '2026-10-14T08:00:00Z', sources: [{ id: 'slow', count: 3, error: null }] });
+  const s = await runScan({ config, env: {}, store, specs: [spec], fetchImpl: siteFetch(feeds), now, notify: false });
+  assert.deepEqual(s.sources, [{ id: 'slow', label: 'Lenta', count: 0, requests: 0, ms: 0, error: null, skipped: true }]);
+  const later = await runScan({ config, env: {}, store, specs: [spec], fetchImpl: siteFetch(feeds), now: new Date('2026-10-14T14:30:00Z'), notify: false });
+  assert.equal(later.sources[0].skipped, undefined);
+  assert.equal(later.sources[0].count, 1);
+});
+
+test('fonte custom: thread mensile di HN, solo i commenti di primo livello che cercano', async () => {
+  const { SOURCES: REG } = await import('../lib/sources/registry.mjs');
+  const spec = REG.find((s) => s.id === 'hn-freelancer');
+  const fetchImpl = async (url) => {
+    if (url.includes('author_whoishiring')) return Response.json({ hits: [{ objectID: '100', title: 'Ask HN: Who is hiring? (October 2026)' }, { objectID: '200', title: 'Ask HN: Freelancer? Seeking freelancer? (October 2026)' }] });
+    if (url.includes('story_200')) return Response.json({ hits: [
+      { objectID: '1', parent_id: 200, comment_text: 'SEEKING FREELANCER | Remote | GSAP landing page<p>Need scroll animations.', created_at: '2026-10-02T10:00:00Z' },
+      { objectID: '2', parent_id: 200, comment_text: 'SEEKING WORK | Berlin | React dev', created_at: '2026-10-02T11:00:00Z' },
+      { objectID: '3', parent_id: 1, comment_text: 'SEEKING FREELANCER reply', created_at: '2026-10-02T12:00:00Z' },
+    ] });
+    return new Response('', { status: 404 });
+  };
+  const r = await collect(spec, { userAgent: 'T', fetchImpl });
+  assert.equal(r.error, null);
+  assert.deepEqual(r.raws.map((x) => x.url), ['https://news.ycombinator.com/item?id=1']);
+  assert.equal(r.raws[0].title, 'SEEKING FREELANCER | Remote | GSAP landing page');
+  assert.equal(r.raws[0].source, 'hn-freelancer');
 });

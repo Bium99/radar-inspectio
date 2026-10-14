@@ -1,29 +1,60 @@
 # radar-inspectio
 
-Il radar delle richieste di lavoro **già aperte**: migrazioni da Webflow, Framer o WordPress, siti da rifare identici, animazioni da costruire o da riparare. Ascolta solo fonti lecite, classifica ogni richiesta, misura il sito del cliente prima che tu risponda e ti prepara una bozza. **L'invio resta tuo.**
+Un radar sempre acceso per le richieste di lavoro **già aperte**: migrazioni da Webflow, Framer, Wix o WordPress, siti da rifare identici, animazioni da costruire o da riparare. Ogni 30 minuti legge le fonti, tiene solo ciò che ti riguarda, misura il sito del cliente, ti avvisa sul telefono e ti prepara la bozza della risposta. **L'invio resta tuo.**
 
-È un progetto separato da `site-inspector`: non ne importa codice e non lo modifica.
+Gira gratis su GitHub Actions, anche a computer spento. È un progetto separato da `site-inspector`.
 
-## Cosa fa e cosa non fa
+## Da fare una volta sola (5 minuti)
 
-| Fa | Non fa |
+1. **La password.** Nel repository: *Settings → Secrets and variables → Actions → New repository secret*.
+   - Nome: `RADAR_PASSWORD`
+   - Valore: una frase lunga che ricorderai, per esempio tre parole e un numero.
+
+   Cifra i dati del radar e apre la dashboard. Dal giro successivo il radar parte da solo.
+2. **Le notifiche sul telefono.** Installa l'app **ntfy** (gratis, nessun account). Poi apri la dashboard, premi *Notifiche* e iscriviti al topic che ti mostra. In alternativa, da terminale: `RADAR_PASSWORD=… node bin/radar.mjs topic`.
+3. **La dashboard online.** *Settings → Pages → Build and deployment → Source: GitHub Actions*.
+   - Su un repository privato, GitHub Pages richiede GitHub Pro, gratuito con il [GitHub Student Developer Pack](https://education.github.com/pack) (hai una mail del Politecnico).
+   - La pagina è raggiungibile da chiunque abbia il link, ma i dati sono cifrati con la tua password e senza password non si legge nulla.
+   - Senza Pages la dashboard si apre in locale: `npm install` e poi `RADAR_PASSWORD=… npm run dashboard`.
+
+Fatto. Il primo giro manda **una sola** notifica di riepilogo; da lì in poi una per ogni richiesta sopra soglia.
+
+## Cosa trovi nella dashboard
+
+- **Richieste**: elenco ordinato per punteggio, con filtri per periodo, testo, stato, punteggio, fonte, lingua e categoria. Per ogni richiesta:
+  - il perché del punteggio;
+  - la misura del sito del cliente (piattaforma, librerie di movimento, fascia di difficoltà);
+  - la bozza di risposta da copiare;
+  - lo stato (nuova, risposto, vinto, perso, scartato) e le tue note.
+- **Statistiche**: richieste al giorno, per fonte, per tipo di lavoro.
+- **Fonti**: la salute di ogni fonte a ogni giro, così vedi subito se qualcosa smette di funzionare.
+
+Gli stati e le note si salvano sul dispositivo. Per averli uguali su telefono e computer, in *Impostazioni* incolla un token GitHub «fine-grained» con *Contents: Read and write* **solo** su questo repository.
+
+## Altri canali di notifica (facoltativi)
+
+Ognuno si attiva aggiungendo i suoi segreti, come per `RADAR_PASSWORD`:
+
+| Canale | Segreti |
 | --- | --- |
-| Legge gli avvisi email che le piattaforme ti mandano (ricerche salvate di Malt, Upwork, LinkedIn, Contra) | Entrare nel tuo account di una piattaforma, scaricarne le pagine, inviare proposte |
-| Legge Reddit dall'API ufficiale e i feed RSS dei forum | Scraping di directory o siti che lo vietano |
-| Misura UNA pagina del sito del cliente, con User-Agent onesto e `robots.txt` rispettato | Mascherarsi da browser o aggirare blocchi |
-| Scarta sempre chi chiede di copiare il sito di qualcun altro | Rispondere al posto tuo |
-| Ti avvisa su Telegram in pochi minuti | Tenere i dati per sempre: `radar pulisci` cancella dopo 60 giorni |
+| ntfy con un topic tuo | `NTFY_TOPIC` (e `NTFY_SERVER`, `NTFY_TOKEN` se usi un server tuo); `NTFY_OFF=1` lo spegne |
+| Telegram | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (bot da @BotFather) |
+| Discord | `DISCORD_WEBHOOK_URL` |
+| Slack | `SLACK_WEBHOOK_URL` |
+| Email (un riepilogo per giro) | `SMTP_URL` (es. `smtps://utente:password-app@smtp.gmail.com`), `EMAIL_TO`, `EMAIL_FROM` |
 
-## Come funziona
+## Fonti
 
-1. **Raccolta.** Email di avviso (IMAP), Reddit (API) e feed RSS diventano richieste in un formato unico: fonte, link, titolo, testo, budget, lingua, URL del sito del cliente.
-2. **Classificazione.** Regole leggibili assegnano le categorie (migrazione, rifacimento, animazioni, bug di animazione, performance) e un punteggio da 0 a 100. Ogni punto ha la sua ragione, visibile con `radar mostra <id>`.
-3. **Bandiera rossa.** «Clonare il sito di un concorrente» porta il punteggio a 0 e la richiesta viene scartata. «Clonare» senza dire di chi è il sito dimezza il punteggio e chiede di verificare la titolarità.
-4. **Misura.** Se c'è l'URL del sito e il punteggio è almeno `measureMinScore`, il radar ne scarica una pagina e dice piattaforma, framework, librerie di movimento e fascia di difficoltà (BASSA, MEDIA, AVANZATA, come in `docs/BENCHMARKS.md` di site-inspector). È una stima dall'HTML: le librerie dentro i bundle non si vedono. Sulle richieste migliori lancia l'ispezione completa di site-inspector a mano.
-5. **Avviso.** Le richieste con punteggio almeno `notifyMinScore` arrivano su Telegram, dalla migliore.
-6. **Bozza.** `radar bozza <id>` scrive una risposta con il fatto misurato, i tre passi del lavoro, tempi e prezzo dalla tua configurazione. Con `--llm` la rifinisce Claude. La rileggi e la invii tu.
+Il radar legge solo fonti con un accesso automatico lecito: feed RSS/Atom, API pubbliche, API ufficiali con chiave, avvisi email. Niente pagine HTML di siti che lo vietano, niente bot nei tuoi account. L'elenco completo, con lo stato di ognuna, è nella sezione *Fonti* della dashboard e in `lib/sources/registry.mjs`. `node bin/radar.mjs fonti` mostra quali sono attive.
 
-## Punteggio
+Fonti facoltative che chiedono una credenziale:
+
+| Fonte | Segreti |
+| --- | --- |
+| Avvisi email delle piattaforme (Malt, Upwork, LinkedIn, Contra): ricerche salvate con avviso email verso una casella dedicata | `IMAP_HOST`, `IMAP_USER`, `IMAP_PASS` (password per app), `IMAP_MAILBOX` (default `Radar`) |
+| Bozze rifinite da Claude per le richieste migliori | `ANTHROPIC_API_KEY` |
+
+## Come decide
 
 | Segnale | Punti |
 | --- | --- |
@@ -38,114 +69,31 @@ Il radar delle richieste di lavoro **già aperte**: migrazioni da Webflow, Frame
 | Lingua preferita | +5 |
 | Pubblicata da meno di 3 ore | +10 |
 | Sembra un impiego, non un progetto | −25 |
-| Copia del sito di terzi | punteggio 0, scartata |
-| «Clonare» senza dire di chi è il sito | punteggio dimezzato |
+| Chiede di copiare il sito di un altro | scartata, sempre |
 
-## Installazione
+In archivio entra solo ciò che arriva ad almeno `storeMinScore` (20): il resto si ricorda solo come id, per non rivederlo. La notifica parte da `notifyMinScore` (45), e mai per annunci pubblicati da più di `notifyMaxAgeDays` (3) giorni. Tutte le soglie sono in `radar.config.json`.
 
-Serve Node.js 22 o superiore.
+## Minuti di GitHub Actions
 
-```bash
-git clone https://github.com/Bium99/radar-inspectio.git
-cd radar-inspectio
-npm install
-cp .env.example .env
-npm test
-```
+Con un giro ogni 30 minuti di giorno e ogni ora di notte, i giri sono circa 40 al giorno, cioè 1.200–1.800 minuti al mese.
+- Il piano gratuito per i repository privati ne include 2.000.
+- GitHub Pro (Student Pack) ne include 3.000: lì puoi stringere a ogni 15–20 minuti modificando le righe `cron` in `.github/workflows/radar.yml`.
+- Un repository pubblico ha minuti illimitati, e i dati restano cifrati.
 
-Poi verifica subito che la misura funzioni dalla tua rete:
-
-```bash
-node bin/radar.mjs sito https://webflow.com/
-```
-
-## Configurazione delle fonti
-
-Ogni fonte parte solo se ha le credenziali in `.env`: puoi attivarne una alla volta.
-
-### Avvisi email (Malt, Upwork, LinkedIn, Contra)
-
-1. Crea una casella dedicata (per esempio un Gmail nuovo) e attiva la verifica in due passaggi.
-2. Crea una **password per le app** e mettila in `IMAP_PASS`, con `IMAP_USER` = l'indirizzo.
-3. Su ogni piattaforma salva le ricerche che ti interessano («webflow migration», «framer to code», «GSAP», «rifare sito») e attiva gli avvisi email verso quella casella.
-4. In Gmail crea un filtro che mette gli avvisi sotto l'etichetta `Radar` (in IMAP le etichette sono cartelle). Il nome si cambia in `radar.config.json` → `sources.email.mailbox`.
-
-Il radar legge solo i messaggi non letti di quella cartella e li segna come letti.
-
-**Da calibrare:** il lettore è stato scritto e testato su avvisi *costruiti a mano*, perché i formati veri cambiano spesso e non erano disponibili. Appena ricevi un avviso vero, salvalo come `.eml` («Scarica messaggio» in Gmail) e prova:
-
-```bash
-node bin/radar.mjs prova-email avviso.eml
-```
-
-Se titoli o link non tornano, la correzione va in `lib/sources/email.mjs` (`PLATFORMS`), con un test nuovo costruito su quell'email.
-
-### Reddit
-
-1. Vai su <https://www.reddit.com/prefs/apps> e crea un'app di tipo «script».
-2. Metti `REDDIT_CLIENT_ID` e `REDDIT_CLIENT_SECRET` in `.env`.
-3. Scegli i subreddit in `radar.config.json`. Con `onlyHiring` si tengono solo i post di chi cerca qualcuno, non di chi si offre.
-
-Il radar usa l'API ufficiale a basso volume: un giro ogni 15 minuti è ampiamente nei limiti.
-
-### Feed RSS
-
-Molti forum su Discourse espongono le categorie come feed: `https://<forum>/c/<categoria>.rss`. Aggiungili in `sources.rss` con `"enabled": true`.
-
-### Telegram
-
-1. Scrivi a `@BotFather`, crea un bot e copia il token in `TELEGRAM_BOT_TOKEN`.
-2. Manda un messaggio qualsiasi al tuo bot, poi apri `https://api.telegram.org/bot<TOKEN>/getUpdates` e copia `chat.id` in `TELEGRAM_CHAT_ID`.
-
-Senza Telegram gli avvisi si stampano nel terminale.
-
-### Il resto di `radar.config.json`
-
-- `userAgent`: metti un contatto vero al posto di `CAMBIA-QUI` (una mail o un sito). Chi riceve la richiesta deve poter sapere chi sei.
-- `pricing` e `timeline`: sono **segnaposto**. Mettili tu dopo i primi lavori, meglio se dai tempi misurati.
-- `signature`: la tua firma nelle bozze.
-- `preferredLangs`, `minBudget`, `notifyMinScore`, `measureMinScore`, `retentionDays`: le soglie.
-
-## Uso
+## Comandi
 
 ```text
-radar scansiona [--prova]           un giro su tutte le fonti attive (--prova: non salva e non avvisa)
-radar elenco [--stato S] [--min N]  richieste salvate, dalla migliore
-radar mostra <id>                   testo, punteggio con le ragioni, misura del sito
-radar misura <id>                   (ri)misura il sito della richiesta
-radar bozza <id> [--llm]            bozza della risposta; la invii TU
-radar stato <id> <stato> [nota]     nuovo | notificato | risposto | vinto | perso | scartato
-radar pulisci                       cancella le richieste più vecchie di retentionDays (tranne "vinto")
-radar esporta <file.csv>            per Airtable, Notion o un foglio di calcolo
-radar sito <url>                    prova la misura su un URL qualsiasi
-radar prova-email <file.eml>        prova il lettore su un avviso salvato
+npm run dashboard        dashboard in locale con i dati raccolti da GitHub (serve RADAR_PASSWORD)
+npm run prova-fonti      un giro vero su tutte le fonti, senza salvare né avvisare
+node bin/radar.mjs aiuto tutti i comandi (anche l'uso solo in locale, senza GitHub)
+npm test                 i test
 ```
 
-Dentro la cartella del progetto il comando è `node bin/radar.mjs …`; con `npm link` diventa `radar …`.
+Su GitHub puoi lanciare un giro a mano da *Actions → radar → Run workflow*. Con «Solo prova delle fonti» il giro non salva nulla e non manda notifiche.
 
-### Un giro ogni 15 minuti
+## Regole che il radar rispetta
 
-Su Mac o Linux con `crontab -e`:
-
-```cron
-*/15 * * * * cd /percorso/radar-inspectio && /usr/local/bin/node bin/radar.mjs scansiona >> data/radar.log 2>&1
-*/15 * * * * cd /percorso/radar-inspectio && /usr/local/bin/node bin/radar.mjs pulisci >> data/radar.log 2>&1
-```
-
-Controlla il percorso di Node con `which node`. Il secondo comando può girare anche una volta al giorno.
-
-### Bozza rifinita con Claude
-
-`radar bozza <id> --llm` usa il modello `claude-opus-5-5` e serve `ANTHROPIC_API_KEY` in `.env`. Il testo dell'annuncio entra come dato, mai come istruzione. Se il modello declina la richiesta, l'API ripiega da sola su un altro modello (parametro `fallbacks: "default"`). Il prompt vieta di inventare esperienza, clienti, numeri, tempi o prezzi. Il risultato resta una bozza da rileggere.
-
-## Regole che il radar rispetta, e che devi rispettare tu
-
-- **Niente automazione dentro le piattaforme.** Upwork, Malt e LinkedIn vietano bot e invii automatici: il rischio vero è perdere l'account con le recensioni. Il radar si ferma alla bozza.
-- **Dati personali.** Gli annunci contengono nomi. `data/` non si versiona mai (è in `.gitignore`), e `radar pulisci` cancella dopo `retentionDays`, tranne le richieste diventate lavoro.
-- **Siti dei clienti.** Una sola pagina per richiesta, User-Agent onesto, `robots.txt` rispettato. Un `robots.txt` in errore (5xx) significa che non si scarica. Gli indirizzi interni e quelli non http(s) vengono rifiutati.
-- **Richieste di copia.** Scartate sempre: un lavoro così espone te, non solo il cliente.
-
-## Cosa è verificato e cosa no
-
-- 43 test automatici (`npm test`) coprono classificazione, bandiere rosse, lettori di RSS, Reddit ed email, misura, `robots.txt`, archivio, bozze, notifiche, il giro completo con una fonte rotta e la chiamata a Claude. Tutti girano senza rete, con risposte finte.
-- **Non ancora provato contro i servizi veri:** IMAP, API di Reddit, Telegram, Claude e la misura di siti reali. L'ambiente in cui è stato scritto blocca i siti esterni. I primi due comandi da lanciare sul tuo computer sono `radar sito <url>` e `radar prova-email <file.eml>`.
+- **Niente automazione dentro le piattaforme.** Upwork, Malt e LinkedIn vietano bot e invii automatici: il radar si ferma alla bozza.
+- **Dati personali.** Gli annunci contengono nomi. Lo stato è cifrato, sta solo sul branch `data` (un unico commit, riscritto a ogni giro) e scade dopo `retentionDays` (60 giorni), tranne le richieste diventate lavoro.
+- **Siti dei clienti.** Una sola pagina per richiesta, User-Agent onesto, `robots.txt` rispettato. Gli indirizzi interni e quelli non http(s) vengono rifiutati.
+- **Dashboard.** Nessuna risorsa esterna: una CSP ammette solo il suo script, e il testo degli annunci viene inserito come testo, mai come HTML.
