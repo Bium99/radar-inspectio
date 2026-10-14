@@ -55,7 +55,6 @@ Attive da subito, senza fare nulla:
 
 | Fonte | Cosa porta |
 | --- | --- |
-| Freelancer.com (API, anche solo progetti in italiano) | progetti Webflow, Framer, GSAP, three.js, migrazioni |
 | Codeur.com | progetti francesi: Webflow, Framer, animazioni, refonte |
 | Forum GSAP · Jobs & Freelance | richieste di animatori GSAP (poche, ma le migliori) |
 | Forum three.js · Jobs | lavori 3D e WebGL |
@@ -66,7 +65,8 @@ Facoltative, in ordine di quanto rendono (ognuna si accende con i suoi segreti):
 
 | Fonte | Perché | Segreti |
 | --- | --- | --- |
-| Avvisi email delle piattaforme (Upwork, Malt, LinkedIn, Contra): ricerche salvate con avviso email verso una casella dedicata | è dove escono quasi tutte le richieste di migrazione | `IMAP_HOST`, `IMAP_USER`, `IMAP_PASS` (password per app), `IMAP_MAILBOX` (default `Radar`) |
+| Freelancer.com (API ufficiale, anche i progetti in italiano) | la fonte più ricca del collaudo: ogni giorno progetti Webflow, Framer, GSAP, three.js. I termini di Freelancer vietano l'accesso automatico senza permesso, quindi il radar la usa solo con il token gratuito dello sviluppatore: registra un'app su [developers.freelancer.com](https://developers.freelancer.com) e copia il token di accesso | `FREELANCER_TOKEN` |
+| Avvisi email delle piattaforme (Upwork, Malt, LinkedIn, Contra): ricerche salvate con avviso email verso una casella dedicata | è dove escono quasi tutte le richieste di migrazione. Il radar legge la casella in sola lettura, senza segnare nulla come letto | `IMAP_HOST`, `IMAP_USER`, `IMAP_PASS` (password per app), `IMAP_MAILBOX` (default `Radar`) |
 | Reddit, con l'API ufficiale | r/forhire, r/webflow, r/framer, r/ItalyInformatica… La lettura anonima da GitHub è bloccata. Crea l'app («script») su reddit.com/prefs/apps **entro il 31 ottobre 2026**: Reddit chiude le nuove richieste di accesso all'API e il 13 novembre spegne i feed RSS. | `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET` |
 | Ricerca sul web (Brave Search API) | post pubblici delle ultime 24 ore su LinkedIn, X e forum che chiedono proprio questi lavori. Chiave gratuita su brave.com/search/api | `BRAVE_API_KEY` |
 | Bluesky | post con «hiring webflow», «gsap developer»…; serve una password per app, non quella dell'account | `BLUESKY_HANDLE`, `BLUESKY_APP_PASSWORD` |

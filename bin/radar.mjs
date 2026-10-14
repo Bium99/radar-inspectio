@@ -102,7 +102,7 @@ async function main() {
         // i log di Actions possono essere pubblici: solo l'esito, i conteggi stanno nella dashboard cifrata
         console.log(`giro completato: ${summary.sources.length} fonti, ${failed.length} in errore${failed.length ? ` (${failed.map((s) => s.id).join(', ')})` : ''}`);
       } else {
-        const srcs = summary.sources.map((s) => `${s.id}=${s.error ? `ERR(${s.error.slice(0, 60)})` : s.count}`).join(' ');
+        const srcs = summary.sources.map((s) => `${s.id}=${s.error ? `ERR(${s.error.slice(0, 60)})` : s.skipped ? 'in pausa' : s.count}`).join(' ');
         console.log(`fonti: ${srcs || 'nessuna attiva'}`);
         console.log(`lette ${summary.fetched} · nuove ${summary.fresh} · pertinenti ${summary.relevant} · misurate ${summary.measured} · avvisi ${summary.notified}${summary.firstRun ? ' (primo giro: un solo riepilogo)' : ''} · bozze rifinite ${summary.polished} · in archivio ${summary.items} · cancellate ${summary.removed}`);
       }
