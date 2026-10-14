@@ -258,3 +258,79 @@ test('fonte websearch (Brave): mappatura, chiave nell\'intestazione, nessun risu
   assert.equal(r.raws.length, 1);
   assert.match(r.raws[0].text, /^We are looking for a Webflow developer/);
 });
+
+// ——— regressioni dalla revisione avversariale ———
+test('revisione: un lavoro segnato «vinto» nella dashboard non scade', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'radar-vinto-'));
+  try {
+    const { saveStore } = await import('../lib/store.mjs');
+    const { encryptJson } = await import('../lib/crypto.mjs');
+    const { writeFileSync } = await import('node:fs');
+    const statePath = join(dir, 'state.enc.json');
+    const statusesPath = join(dir, 'stati.enc.json');
+    const store = emptyStore();
+    store.items.old1 = { id: 'old1', url: 'https://x.com/1', title: 'Vecchio vinto', text: '', status: 'notificato', firstSeenAt: '2026-08-01T00:00:00Z', classification: { score: 80, categories: [] } };
+    store.items.old2 = { id: 'old2', url: 'https://x.com/2', title: 'Vecchio qualunque', text: '', status: 'notificato', firstSeenAt: '2026-08-01T00:00:00Z', classification: { score: 80, categories: [] } };
+    saveStore(statePath, store, { password: 'pw' });
+    writeFileSync(statusesPath, JSON.stringify(encryptJson({ version: 1, statuses: { old1: { status: 'vinto', at: '2026-08-10T00:00:00Z' } } }, 'pw')));
+    const s = await runCycle({ config, env: { RADAR_PASSWORD: 'pw', NTFY_OFF: '1' }, specs: [], statePath, statusesPath, now });
+    assert.equal(s.removed, 1);
+    assert.deepEqual(Object.keys(loadStore(statePath, { password: 'pw' }).items), ['old1']);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('revisione: un avviso non partito (canale giù) riparte al giro dopo', async () => {
+  const feeds = { 'https://a.com/feed': rss([['Migrate our Webflow site to Next.js', 'https://post.com/9', 'Same design. Budget $2,000']]) };
+  let ntfyUp = false;
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    if (url.startsWith('https://ntfy.sh')) { calls.push(url); return new Response('', { status: ntfyUp ? 200 : 502 }); }
+    return siteFetch(feeds)(url, init);
+  };
+  const store = emptyStore();
+  store.runs.push({ at: '2026-10-14T09:00:00Z', sources: [] });
+  const first = await runScan({ config, env: { NTFY_TOPIC: 't' }, store, specs: SPECS.slice(0, 1), fetchImpl, now });
+  assert.equal(first.notified, 0);
+  ntfyUp = true;
+  const second = await runScan({ config, env: { NTFY_TOPIC: 't' }, store, specs: SPECS.slice(0, 1), fetchImpl, now: new Date('2026-10-14T10:30:00Z') });
+  assert.equal(second.fresh, 0);
+  assert.equal(second.notified, 1);
+  assert.equal(Object.values(store.items)[0].status, 'notificato');
+});
+
+test('revisione: una data che il motore non capisce perde solo la data, non il feed', async () => {
+  const { parseFeed } = await import('../lib/sources/rss.mjs');
+  const items = parseFeed(`<?xml version="1.0"?><rss version="2.0"><channel>
+    <item><title>A</title><link>https://f.com/1</link><pubDate>Tue, 14 Oct 2026 10:00:00 CEST</pubDate></item>
+    <item><title>B</title><link>https://f.com/2</link><pubDate>Tue, 14 Oct 2026 10:00:00 GMT</pubDate></item>
+  </channel></rss>`, 'f');
+  assert.equal(items.length, 2);
+  assert.equal(items[0].publishedAt, null);
+  assert.equal(items[1].publishedAt, '2026-10-14T10:00:00.000Z');
+});
+
+test('revisione: la cadenza conta anche i tentativi falliti (niente richiami a ogni giro)', async () => {
+  let calls = 0;
+  const spec = { id: 'lenta', label: 'Lenta', type: 'rss', url: 'https://l.com/feed', everyMinutes: 360 };
+  const fetchImpl = async () => { calls += 1; return new Response('', { status: 503 }); };
+  const store = emptyStore();
+  await runScan({ config, env: {}, store, specs: [spec], fetchImpl, notify: false, now });
+  await runScan({ config, env: {}, store, specs: [spec], fetchImpl, notify: false, now: new Date(now.getTime() + 30 * 60_000) });
+  assert.equal(calls, 1);
+  await runScan({ config, env: {}, store, specs: [spec], fetchImpl, notify: false, now: new Date(now.getTime() + 350 * 60_000) });
+  assert.equal(calls, 2, 'con il margine per i ritardi di GitHub torna dovuta poco prima delle 6 ore');
+});
+
+test('revisione: un subreddit irraggiungibile non spegne tutta la fonte Reddit', async () => {
+  const spec = SOURCES.find((s) => s.id === 'reddit');
+  const listing = (title) => ({ data: { children: [{ data: { title, selftext: 'budget $500', permalink: `/r/x/comments/${title.length}/`, created_utc: 1792000000 } }] } });
+  const fetchImpl = async (url) => {
+    if (url.includes('access_token')) return Response.json({ access_token: 'tk' });
+    if (url.includes('/r/framer/')) return new Response('', { status: 403 });
+    if (url.includes('/r/forhire/')) return Response.json(listing('[Hiring] Webflow developer'));
+    return Response.json({ data: { children: [] } });
+  };
+  const r = await collect(spec, { userAgent: 'T', fetchImpl, env: { REDDIT_CLIENT_ID: 'i', REDDIT_CLIENT_SECRET: 's' } });
+  assert.equal(r.raws.length, 1);
+  assert.match(r.error, /errori parziali: reddit r\/framer: HTTP 403/);
+});

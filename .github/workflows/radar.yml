@@ -97,10 +97,13 @@ jobs:
         id: stato
         run: |
           mkdir -p .radar
-          if git fetch --quiet --depth=1 origin +refs/heads/data:refs/remotes/origin/data 2>/dev/null; then
+          # un branch che esiste ma non si scarica (rete) ferma il giro: ripartire da zero cancellerebbe lo stato
+          if git ls-remote --exit-code --heads origin data >/dev/null; then
+            git fetch --quiet --depth=1 origin +refs/heads/data:refs/remotes/origin/data
             git show origin/data:state.enc.json > .radar/state.enc.json
           fi
-          if git fetch --quiet --depth=1 origin +refs/heads/stati:refs/remotes/origin/stati 2>/dev/null; then
+          if git ls-remote --exit-code --heads origin stati >/dev/null; then
+            git fetch --quiet --depth=1 origin +refs/heads/stati:refs/remotes/origin/stati
             git show origin/stati:stati.enc.json > .radar/stati.enc.json
             echo "stati=1" >> "$GITHUB_OUTPUT"
           fi
