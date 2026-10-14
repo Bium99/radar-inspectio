@@ -147,3 +147,38 @@ test('collaudo: progetti Webflow/Framer hanno la loro categoria', () => {
   assert.deepEqual(c.categories, ['webflow_framer']);
   assert.equal(c.score, 20 + 10);
 });
+
+// ——— quarto collaudo (2026-10-14): Codeur, Freelancer, Himalayas ———
+test('collaudo 4: «fixed price», «without lag», «glitch-free» non sono animazioni rotte', () => {
+  const c = classify(fromMarket('Fixed price: landing page with GSAP animations', 'Smooth scroll animations without lag or jank. Glitch-free transitions.'), cfg, { now });
+  assert.deepEqual(c.categories, ['animazioni']);
+  assert.ok(classify(fromMarket('Our GSAP scroll animation is broken on Safari', 'Need someone to fix it.'), cfg, { now }).categories.includes('bug_animazione'));
+});
+
+test('collaudo 4: Framer Motion è una libreria, non un sito Framer', () => {
+  const c = classify(fromBoard('Frontend Developer (React / Next.js)', 'React, Next.js, Framer Motion, Tailwind. Contract role.'), cfg, { now });
+  assert.ok(!c.categories.includes('webflow_framer'));
+  assert.ok(c.categories.includes('animazioni'));
+});
+
+test('collaudo 4: video, logo, giochi e preventivatori «interattivi» non sono animazioni web', () => {
+  for (const [title, text] of [
+    ['Une vidéo de présentation pour un site web.', 'Nous voulons une animation pour notre site.'],
+    ['Vectorize Logos & Develop Complete Branding', 'Animated logo for the website.'],
+    ['Interactive Flooring Quote Tool', 'An interactive tool on our website.'],
+    ['Creer un jeu interactif', 'Jeu interactif sur notre site web, animé.'],
+    ['Création d\'une plateforme de montage vidéo et motion design en web', 'Plateforme web.'],
+  ]) assert.deepEqual(classify(fromMarket(title, text), cfg, { now }).categories, [], title);
+  assert.deepEqual(classify(fromMarket('Création d\'un site web dynamique et animé', 'Site vitrine.'), cfg, { now }).categories, ['animazioni']);
+});
+
+test('collaudo 4: un segnale solo nominato in un testo lungo vale meno che nel titolo', () => {
+  const filler = ' We need a modern responsive website for our travel community with blog, booking and member area.'.repeat(8);
+  const body = classify(fromMarket('Modern Global Travel Community Website', `${filler} Built with Webflow, nice animations.`), cfg, { now });
+  const title = classify(fromMarket('Webflow website with animations', filler), cfg, { now });
+  assert.deepEqual(body.categories, ['animazioni', 'webflow_framer']);
+  assert.equal(body.score, 12 + 10 + 10, 'animazione generica 12 + Webflow nominato 10 + fonte di richieste 10');
+  assert.equal(title.score, 25 + 20 + 10);
+  assert.ok(body.reasons[0].includes('solo nominata nel testo'));
+  assert.equal(body.terms.webflow_framer, 'Webflow');
+});

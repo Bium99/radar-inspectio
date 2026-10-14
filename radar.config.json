@@ -6,27 +6,8 @@
   "measureMinScore": 30,
   "retentionDays": 60,
   "storePath": "data/radar.json",
-  "sources": {
-    "email": {
-      "enabled": true,
-      "mailbox": "Radar"
-    },
-    "reddit": {
-      "enabled": true,
-      "subreddits": [
-        { "name": "forhire", "onlyHiring": true },
-        { "name": "webflow", "onlyHiring": true },
-        { "name": "framer", "onlyHiring": true }
-      ]
-    },
-    "rss": [
-      {
-        "name": "esempio-forum-discourse",
-        "url": "https://forum.esempio.com/c/lavoro.rss",
-        "enabled": false
-      }
-    ]
-  },
+  "disabledSources": [],
+  "feeds": [],
   "pricing": {
     "_nota": "Valori segnaposto: mettili tu dopo i primi lavori (meglio dai tempi misurati del registro dei run di site-inspector).",
     "migrazione": { "BASSA": "€600–1.000", "MEDIA": "€1.000–1.800", "AVANZATA": "da valutare dopo la misura completa" },

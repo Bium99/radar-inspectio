@@ -9,7 +9,8 @@ import { runScan, describeSources } from '../lib/scan.mjs';
 import { runCycle, pagesUrl, loadStatuses, writeEmptyStatuses } from '../lib/cycle.mjs';
 import { emptyStore, loadStore } from '../lib/store.mjs';
 import { decryptJson } from '../lib/crypto.mjs';
-import { SOURCES } from '../lib/sources/registry.mjs';
+import { SOURCES, sourcesFor } from '../lib/sources/registry.mjs';
+import { hashId } from '../lib/util.mjs';
 
 test('json: percorsi, modelli di URL, mappatura', () => {
   assert.equal(pick({ a: { b: [{ c: 3 }] } }, 'a.b.0.c'), 3);
@@ -110,7 +111,8 @@ test('scan: doppioni tra fonti, rumore ricordato come visto, copia scartata, mis
   assert.equal(good.status, 'notificato');
   assert.equal(good.measurement.platform, 'webflow');
   assert.equal(Object.values(store.items).find((i) => i.url === 'https://post.com/3').status, 'scartato');
-  assert.equal(Object.keys(store.seen).length, 1, 'il rumore resta solo come id');
+  assert.ok(store.seen[hashId('https://post.com/2')], 'il rumore resta solo come id');
+  assert.ok(!Object.values(store.items).some((i) => i.url === 'https://post.com/2'));
   assert.equal(sent.length, 1);
   assert.equal(store.runs.at(-1).relevant, 1);
   assert.equal(store.runs.at(-1).sources.length, 2);
@@ -187,21 +189,44 @@ test('cadenza per fonte: una fonte «ogni 6 ore» salta i giri intermedi e lo di
   assert.equal(later.sources[0].count, 1);
 });
 
-test('fonte custom: thread mensile di HN, solo i commenti di primo livello che cercano', async () => {
-  const { SOURCES: REG } = await import('../lib/sources/registry.mjs');
-  const spec = REG.find((s) => s.id === 'hn-freelancer');
+test('fonte custom: thread mensile di HN, solo i commenti di primo livello con un ruolo creativo nel titolo', async () => {
+  const spec = SOURCES.find((s) => s.id === 'hn-hiring');
   const fetchImpl = async (url) => {
-    if (url.includes('author_whoishiring')) return Response.json({ hits: [{ objectID: '100', title: 'Ask HN: Who is hiring? (October 2026)' }, { objectID: '200', title: 'Ask HN: Freelancer? Seeking freelancer? (October 2026)' }] });
+    if (url.includes('author_whoishiring')) return Response.json({ hits: [{ objectID: '200', title: 'Ask HN: Who is hiring? (October 2026)' }, { objectID: '100', title: 'Ask HN: Who wants to be hired? (October 2026)' }] });
     if (url.includes('story_200')) return Response.json({ hits: [
-      { objectID: '1', parent_id: 200, comment_text: 'SEEKING FREELANCER | Remote | GSAP landing page<p>Need scroll animations.', created_at: '2026-10-02T10:00:00Z' },
-      { objectID: '2', parent_id: 200, comment_text: 'SEEKING WORK | Berlin | React dev', created_at: '2026-10-02T11:00:00Z' },
-      { objectID: '3', parent_id: 1, comment_text: 'SEEKING FREELANCER reply', created_at: '2026-10-02T12:00:00Z' },
+      { objectID: '1', parent_id: 200, comment_text: 'Studio X | Creative Developer (GSAP, WebGL) | Remote | Contract<p>Scroll animations for client sites.', created_at: '2026-10-02T10:00:00Z' },
+      { objectID: '2', parent_id: 200, comment_text: 'Bank Y | Backend Engineer | NYC | Full-time', created_at: '2026-10-02T11:00:00Z' },
+      { objectID: '3', parent_id: 1, comment_text: 'Creative Developer reply', created_at: '2026-10-02T12:00:00Z' },
     ] });
     return new Response('', { status: 404 });
   };
   const r = await collect(spec, { userAgent: 'T', fetchImpl });
   assert.equal(r.error, null);
   assert.deepEqual(r.raws.map((x) => x.url), ['https://news.ycombinator.com/item?id=1']);
-  assert.equal(r.raws[0].title, 'SEEKING FREELANCER | Remote | GSAP landing page');
-  assert.equal(r.raws[0].source, 'hn-freelancer');
+  assert.equal(r.raws[0].title, 'Studio X | Creative Developer (GSAP, WebGL) | Remote | Contract');
+  assert.equal(r.raws[0].source, 'hn-hiring');
+});
+
+test('registro: fonti spente e feed aggiunti da radar.config.json', () => {
+  const specs = sourcesFor({ disabledSources: ['codeur'], feeds: [{ url: 'https://forum.esempio.it/c/lavoro.rss', label: 'Forum' }, { url: 'javascript:alert(1)' }] });
+  assert.equal(specs.find((s) => s.id === 'codeur').enabled, false);
+  const feed = specs.find((s) => s.id === 'feed-1');
+  assert.deepEqual({ type: feed.type, url: feed.url, prefilter: feed.prefilter, demand: feed.demand }, { type: 'rss', url: 'https://forum.esempio.it/c/lavoro.rss', prefilter: true, demand: false });
+  assert.equal(specs.filter((s) => s.family === 'custom').length, 1, 'un URL non http(s) non diventa una fonte');
+  assert.equal(new Set(SOURCES.map((s) => s.id)).size, SOURCES.length, 'id unici');
+});
+
+test('scan: lo stesso annuncio con un altro link (bacheche, due fonti) è una richiesta sola, anche al giro dopo', async () => {
+  const body = 'Contract role. We need a GSAP developer for scroll animations on our marketing site, three months.';
+  const feed = (links) => rss(links.map((l) => ['Senior Frontend Developer', l, body]));
+  const specs = [{ id: 'b', label: 'B', type: 'rss', demand: true, url: 'https://b.com/feed' }];
+  const store = emptyStore();
+  let links = ['https://b.com/jobs/1', 'https://b.com/jobs/2', 'https://b.com/jobs/3'];
+  const fetchImpl = async () => new Response(feed(links));
+  const config = { userAgent: 'T' };
+  const first = await runScan({ config, env: {}, store, specs, fetchImpl, notify: false, now: new Date('2026-10-14T10:00:00Z') });
+  assert.equal(first.fresh, 1);
+  links = ['https://b.com/jobs/4'];
+  const second = await runScan({ config, env: {}, store, specs, fetchImpl, notify: false, now: new Date('2026-10-14T11:00:00Z') });
+  assert.equal(second.fresh, 0, 'ripubblicato con un link nuovo: già visto');
 });

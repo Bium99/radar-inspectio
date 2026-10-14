@@ -12,7 +12,7 @@ import { runCycle, writeEmptyStatuses, loadStatuses, pagesUrl } from '../lib/cyc
 import { draftProposal } from '../lib/draft.mjs';
 import { measureItem, fetchSite, detectStack } from '../lib/measure.mjs';
 import { parseAlertEmail } from '../lib/sources/email.mjs';
-import { SOURCES } from '../lib/sources/registry.mjs';
+import { sourcesFor } from '../lib/sources/registry.mjs';
 import { buildPayload, writeDashboard, serveDashboard } from '../lib/dashboard.mjs';
 import { channelsFromEnv } from '../lib/notify.mjs';
 import { ntfyTopicFromPassword } from '../lib/crypto.mjs';
@@ -23,6 +23,9 @@ try { process.loadEnvFile(resolve(root, '.env')); } catch { /* .env facoltativo 
 const config = JSON.parse(readFileSync(resolve(root, 'radar.config.json'), 'utf8'));
 const storePath = resolve(root, config.storePath ?? 'data/radar.json');
 const env = process.env;
+// su GitHub Actions il contatto nello User-Agent è il repository stesso: niente da compilare a mano
+if (String(config.userAgent ?? '').includes('CAMBIA-QUI') && env.GITHUB_REPOSITORY) config.userAgent = config.userAgent.replace('CAMBIA-QUI', `github.com/${env.GITHUB_REPOSITORY}`);
+const SOURCES = sourcesFor(config);
 const password = env.RADAR_PASSWORD || undefined;
 
 const HELP = `radar — richieste di lavoro già aperte, misurate prima di rispondere
@@ -113,7 +116,20 @@ async function main() {
       const bySource = {};
       for (const it of top) bySource[it.sourceId] = (bySource[it.sourceId] ?? 0) + 1;
       console.log(`pertinenti per fonte: ${JSON.stringify(bySource)}\n`);
-      for (const it of top.slice(0, Number(option('--quante') ?? 25))) console.log(`${String(it.classification.score).padStart(3)}  ${it.sourceId.padEnd(18)} ${(it.classification.categories ?? []).join(',').padEnd(26)} ${it.title.slice(0, 90)}\n     ${it.url}${it.measurement ? `\n     misura: ${it.measurement.error ?? `${it.measurement.platform ?? '?'} ${it.measurement.tier}`}` : ''}`);
+      for (const it of top.slice(0, Number(option('--quante') ?? 25))) {
+        const c = it.classification;
+        console.log(`${String(c.score).padStart(3)}  ${it.sourceId.padEnd(18)} ${(c.categories ?? []).join(',').padEnd(26)} ${it.title.slice(0, 90)}\n     ${it.url}`);
+        // perché: la parola che ha fatto scattare ogni categoria, con un po' di testo intorno
+        console.log(`     perché: ${Object.entries(c.terms ?? {}).map(([cat, term]) => `${cat} «${term}»`).join(' · ')}${c.employment ? ' · impiego' : ''}${c.intent ? '' : ' · nessuna intenzione'}`);
+        if (env.RADAR_DEBUG === '1') {
+          const whole = `${it.title}\n${it.text}`;
+          for (const term of new Set(Object.values(c.terms ?? {}))) {
+            const at = whole.indexOf(term);
+            if (at >= 0) console.log(`       «…${whole.slice(Math.max(0, at - 90), at + term.length + 90).replace(/\s+/g, ' ')}…»`);
+          }
+        }
+        if (it.measurement) console.log(`     misura: ${it.measurement.error ?? `${it.measurement.platform ?? '?'} ${it.measurement.tier}`}`);
+      }
       break;
     }
     case 'scansiona': {
