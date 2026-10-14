@@ -222,3 +222,9 @@ test('collaudo 6: Webflow in un elenco di alternative non è un lavoro Webflow; 
   const perf = classify(fromMarket('Real Estate Brokerage Website Build', 'PageSpeed Insights score 85+ on mobile.'), cfg, { now });
   assert.equal(perf.score, 5 + 10);
 });
+
+test('collaudo 7: «Job is now finished» nel testo chiude l\'annuncio', () => {
+  const c = classify(fromMarket('Paid task ($200): shader-pack style ambient occlusion for a three.js viewer', 'Job is now finished, thanks for your interest'), cfg, { now });
+  assert.equal(c.closed, true);
+  assert.equal(c.score, 0);
+});

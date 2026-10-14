@@ -2,7 +2,7 @@
   "userAgent": "RadarRichieste/0.1 (uso personale; contatto: CAMBIA-QUI)",
   "preferredLangs": ["it"],
   "minBudget": 300,
-  "notifyMinScore": 45,
+  "notifyMinScore": 40,
   "measureMinScore": 30,
   "retentionDays": 60,
   "maxAgeDays": 30,
