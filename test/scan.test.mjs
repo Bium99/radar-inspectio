@@ -242,3 +242,19 @@ test('scan: un annuncio di mesi fa non entra (alcune ricerche restituiscono anch
   assert.equal(s.fresh, 1);
   assert.deepEqual(Object.values(store.items).map((i) => i.url), ['https://o.com/1']);
 });
+
+test('fonte websearch (Brave): mappatura, chiave nell\'intestazione, nessun risultato non è un errore', async () => {
+  const spec = SOURCES.find((s) => s.id === 'websearch');
+  assert.deepEqual(spec.needs, ['BRAVE_API_KEY']);
+  const seen = [];
+  const fetchImpl = async (url, init) => {
+    seen.push(init.headers['x-subscription-token']);
+    if (seen.length === 1) return Response.json({ web: { results: [{ title: 'Looking for a Webflow developer to migrate our site', url: 'https://www.linkedin.com/posts/acme_webflow-activity-1', description: 'We are looking for a <strong>Webflow developer</strong>…', page_age: '2026-10-14T08:00:00' }] } });
+    return Response.json({ type: 'search' });
+  };
+  const r = await collect({ ...spec, delayMs: 0 }, { userAgent: 'T', fetchImpl, env: { BRAVE_API_KEY: 'k' } });
+  assert.equal(r.error, null);
+  assert.equal(seen[0], 'k');
+  assert.equal(r.raws.length, 1);
+  assert.match(r.raws[0].text, /^We are looking for a Webflow developer/);
+});
