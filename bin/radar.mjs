@@ -110,7 +110,7 @@ async function main() {
       // --candidati: accende anche le fonti candidate, per collaudarle dal vivo
       const specs = flag('--candidati') ? SOURCES.map((s) => (s.candidate ? { ...s, enabled: true } : s)) : SOURCES;
       const summary = await runScan({ config, env, store, specs, notify: false });
-      for (const s of summary.sources) console.log(`${s.error ? 'ERRORE' : 'ok    '} ${s.id.padEnd(24)} letti ${String(s.count).padStart(4)}  richieste ${s.requests}  ${s.ms} ms${s.error ? `  ${s.error}` : ''}`);
+      for (const s of summary.sources) console.log(`${s.error ? 'ERRORE' : 'ok    '} ${s.id.padEnd(24)} letti ${String(s.count).padStart(4)}  vecchie ${String(s.stale ?? 0).padStart(3)}  più recente ${s.newest?.slice(0, 10) ?? '—'.padEnd(10)}  richieste ${s.requests}  ${s.ms} ms${s.error ? `  ${s.error}` : ''}`);
       const top = Object.values(store.items).filter((it) => it.status !== 'scartato').sort((a, b) => b.classification.score - a.classification.score);
       console.log(`\nlette ${summary.fetched} · nuove ${summary.fresh} · troppo vecchie ${summary.stale} · pertinenti ${summary.relevant} · misurate ${summary.measured}`);
       const bySource = {};

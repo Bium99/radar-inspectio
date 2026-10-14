@@ -731,11 +731,17 @@ dialog p, dialog li { color: var(--text-secondary); }
     const okRuns = new Map();
     const recent = runs.slice(-48);
     const tried = new Map();
-    for (const r of recent) for (const s of r.sources) { if (s.skipped) continue; tried.set(s.id, (tried.get(s.id) ?? 0) + 1); okRuns.set(s.id, (okRuns.get(s.id) ?? 0) + (s.error ? 0 : 1)); }
+    const newest = new Map();
+    for (const r of recent) for (const s of r.sources) {
+      if (s.newest && (!newest.has(s.id) || s.newest > newest.get(s.id))) newest.set(s.id, s.newest);
+      if (s.skipped) continue;
+      tried.set(s.id, (tried.get(s.id) ?? 0) + 1); okRuns.set(s.id, (okRuns.get(s.id) ?? 0) + (s.error ? 0 : 1));
+    }
     const rows = last.sources.map((s) => el('tr', {},
       el('td', {}, s.label),
       el('td', {}, s.error ? healthBadge('err', 'Errore') : s.skipped ? healthBadge('idle', 'In pausa') : s.count ? healthBadge('ok', 'Letta') : healthBadge('idle', 'Vuota')),
       el('td', { class: 'num' }, String(s.count ?? 0)),
+      el('td', {}, newest.has(s.id) ? ago(newest.get(s.id)) : '—'),
       el('td', { class: 'num' }, String(relevant30.get(s.id) ?? 0)),
       el('td', { class: 'num' }, `${okRuns.get(s.id) ?? 0}/${tried.get(s.id) ?? 0}`),
       el('td', {}, s.error ?? ''),
@@ -745,7 +751,7 @@ dialog p, dialog li { color: var(--text-secondary); }
       el('h2', {}, 'Salute delle fonti'),
       el('div', { class: 'sub' }, `Ultimo giro ${fmtDate.format(new Date(last.at))} (${Math.round((last.durationMs ?? 0) / 1000)} s) · ${last.fresh ?? 0} nuove lette, ${last.relevant ?? 0} pertinenti, ${last.notified ?? 0} avvisi${lastOk && lastOk !== last ? ` · ultimo giro riuscito ${ago(lastOk.at)}` : ''}`),
       el('table', { class: 'data' },
-        el('thead', {}, el('tr', {}, ['Fonte', 'Ultimo giro', 'Elementi letti', 'Pertinenti 30 gg', 'Giri riusciti', 'Errore'].map((h, i) => el('th', { class: i >= 2 && i <= 4 ? 'num' : '' }, h)))),
+        el('thead', {}, el('tr', {}, ['Fonte', 'Ultimo giro', 'Elementi letti', 'Annuncio più recente', 'Pertinenti 30 gg', 'Giri riusciti', 'Errore'].map((h, i) => el('th', { class: [2, 4, 5].includes(i) ? 'num' : '' }, h)))),
         el('tbody', {}, rows)),
       el('p', { class: 'meta' }, `Fonti configurate ma non attive (mancano credenziali o sono spente): ${(S.payload.inactiveSources ?? []).join(', ') || 'nessuna'}.`),
     );

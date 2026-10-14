@@ -211,3 +211,14 @@ test('collaudo 5: Framer Motion o GSAP nell\'elenco delle competenze valgono men
   assert.equal(skills.score, 25 + 10);
   assert.ok(!classify(fromMarket('React/Vite/Three.js 3D Development Specialist', 'Debugging visual, positioning, animation, and performance issues.'), cfg, { now }).categories.includes('bug_animazione'));
 });
+
+test('collaudo 6: Webflow in un elenco di alternative non è un lavoro Webflow; Lighthouse come criterio vale poco', () => {
+  for (const text of [
+    'Full build on a scalable CMS (WordPress, Webflow, or a custom stack—open to your recommendation).',
+    'Nous ne souhaitons pas de Webflow, Wix ou solution propriétaire.',
+    'Stack utilisé : Wordpress + Elementor pro (ou webflow, à étudier).',
+  ]) assert.ok(!classify(fromMarket('Website for a travel community', text), cfg, { now }).categories.includes('webflow_framer'), text);
+  assert.ok(classify(fromMarket('Site vitrine', 'Catégories : Création de site internet, Landing page, Webflow, Web design'), cfg, { now }).categories.includes('webflow_framer'));
+  const perf = classify(fromMarket('Real Estate Brokerage Website Build', 'PageSpeed Insights score 85+ on mobile.'), cfg, { now });
+  assert.equal(perf.score, 5 + 10);
+});
